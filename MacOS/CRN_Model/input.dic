@@ -1,0 +1,33 @@
+Dictionary ReactorNetwork 
+ { 
+@KineticsPreProcessor      kinetic-mechanism; 
+@MinIterations            5;   
+@MaxIterations            500;  
+@AtomicErrorThreshold     1e-3;
+@NonIsothermalErrorThreshold	1e-3; 
+@MaxUnbalance     0.01; 
+@PlugFlowReactors     
+4        input.pfr.4.dic;  
+@PerfectlyStirredReactors     
+0        input.cstr.0.dic  
+1        input.cstr.1.dic  
+2        input.cstr.2.dic  
+3        input.cstr.3.dic;  
+@InternalConnections                     
+0   2   M02
+1   2   M12 
+2   4   M24
+3   4   M34 ; 
+@InputStreams   0 M0
+1 M1 
+3 M3 ; 
+@OutputStreams    4 M4 ; 
+@SpeciesToMonitor   NO  NH3 ; 
+@VerbosityLevel   1; 
+ } 
+Dictionary kinetic-mechanism 
+ { 
+@Kinetics /Users/matteosavarese/Desktop/Dottorato/Ammonia_SNCR_Project/Open_Smoke_simulations/Stagni/chem.dat; 
+@Thermodynamics /Users/matteosavarese/Desktop/Dottorato/Ammonia_SNCR_Project/Open_Smoke_simulations/Stagni/therm.dat; 
+@Output kinetics; 
+ } 

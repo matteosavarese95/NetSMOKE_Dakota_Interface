@@ -1,0 +1,1 @@
+/Users/matteosavarese/Desktop/Dottorato/OpenSmoke/Compilazione_KPP/SeReNetSMOKEpp-master/projects/Linux/SeReNetSMOKEpp.sh --input input.dic
