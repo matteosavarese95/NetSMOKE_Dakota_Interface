@@ -27,7 +27,7 @@ Dictionary ReactorNetwork
  } 
 Dictionary kinetic-mechanism 
  { 
-@Kinetics /Users/matteosavarese/Desktop/Dottorato/Ammonia_SNCR_Project/Open_Smoke_simulations/Stagni/chem.dat; 
-@Thermodynamics /Users/matteosavarese/Desktop/Dottorato/Ammonia_SNCR_Project/Open_Smoke_simulations/Stagni/therm.dat; 
+@Kinetics ../Stagni_NH3/chem.dat; 
+@Thermodynamics ../Stagni_NH3/therm.dat; 
 @Output kinetics; 
  } 

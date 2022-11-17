@@ -236,11 +236,11 @@ for item in output_names:
     O2_out = dt['O2_x(15)'].values[0]
     
     if s[0] == 'T':
-        output_values.append(dt['T[K](5)'].values[0])
+        output_values.append(dt['T[K](5)'].values[-1])
     elif s[0] == 'NO':
-        output_values.append(dt['NO_x(21)'].values[0]*1e6)
+        output_values.append(dt['NO_x(21)'].values[-1]*1e6)
     elif s[0] == 'NH3':
-        output_values.append(dt['NH3_x(32)'].values[0]*1e6)
+        output_values.append(dt['NH3_x(32)'].values[-1]*1e6)
 
 if len(output_values) != len(output_names):
     print('Error: output_values and output_names have different lengths')
