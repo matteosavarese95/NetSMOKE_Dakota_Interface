@@ -16,7 +16,7 @@ method
     	#sample_type lhs
 
     	seed 12347
-    	samples_on_emulator = 100000
+    	samples_on_emulator = 1
 
 	# USE THIS IF YOU ARE INTERESTED IN CDF of RESPONSES
     	#num_probability_levels = 0 17 17
@@ -41,12 +41,12 @@ variables
   normal_uncertain = 1
     means               =  0.05
     std_deviations      =  0.001	
-    descriptors         =  'TAU_CSTR_2'	
+    descriptors         =  'TAU_CSTR_2'
 
   uniform_uncertain = 2
-    lower_bounds = 	1.1		0.3
-    upper_bounds =	1.3		0.5
-    descriptors =   'phi_rich'	'phi_lean'
+    lower_bounds = 	1.1		0.1
+    upper_bounds =	1.3		0.3
+    descriptors =   'phi_rich'	'phi_lean' 
 
 interface
       analysis_drivers 	= 'driver.sh'

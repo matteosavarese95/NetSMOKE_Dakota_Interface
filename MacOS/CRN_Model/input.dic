@@ -18,7 +18,8 @@ Dictionary ReactorNetwork
 1   2   M12 
 2   4   M24
 3   4   M34 ; 
-@InputStreams   0 M0
+@InputStreams   
+0 M0
 1 M1 
 3 M3 ; 
 @OutputStreams    4 M4 ; 

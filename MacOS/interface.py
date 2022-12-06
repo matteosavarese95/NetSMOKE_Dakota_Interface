@@ -65,7 +65,7 @@ def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean):
     M[2,3] = m_fuel + m_air_rich
 
     # Reactor 3 is the fake inlet of the remaining air
-    M[3,4] = m_air_tot - m_air_rich
+    M[3,4] = m_air_tot
 
     # Reactor 4 is the final PFR
     M[2,4] = m_fuel + m_air_rich

@@ -6,7 +6,7 @@ Dictionary PlugFlowReactor
       @ConstantPressure   true;          
       @Diameter           100 mm;         
       @Length             4000 mm;         
-      @MassFlowRate       1.333562e-01 kg/s;       
+      @MassFlowRate       M4 kg/s;       
 }                                        
 
  Dictionary Inlet-Mixture 
