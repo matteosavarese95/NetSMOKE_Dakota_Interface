@@ -185,6 +185,7 @@ print('Now modifying the internal connections of the network...')
 # ---------------- WRITING THE MAIN INPUT.DIC ---------------- #
 
 # Modify input dictionary
+# Modify the mass flowrates
 with open('input.dic', 'r') as fid:
     lines = fid.readlines()
     newlines = []
