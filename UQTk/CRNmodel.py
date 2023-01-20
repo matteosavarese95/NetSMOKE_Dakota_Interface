@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # This is the black-box model that will be run by uq_pc.py as model_bb
+# Alternatively, the function response=CRN_fwd_model(upars, xcond) is callable inline
 
 # WARNING: 
 # input parameters file is presumed to contains columns of T_CSTR_1, TAU_CSTR_2, H_CSTR_2, L_PFR
