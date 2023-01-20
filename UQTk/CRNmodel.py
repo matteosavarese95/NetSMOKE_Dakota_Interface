@@ -17,7 +17,7 @@ import pandas as pd
 
 
 # ---------------- USER DEFINED PARAMETERS ---------------- #
-P = 48.0        # kW
+Pwr = 48.0        # kW
 y_nh3 = 1.0     # mole fraction
 
 # ---------------- HELPER FUNCTIONS ---------------- #
@@ -83,45 +83,22 @@ def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean):
     M[2,4] = m_fuel + m_air_rich
 
     return M
+
+#def calc_phi_lean()
+ 
+
+
+def CRN_fwd_model(upars, xcond, outfile=None):
     
-        
-def main(argv):
-
-    ## Parse input arguments
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('outs', type=int,nargs='*',help="Range of indices of requested outputs (count from 1)")
-
-    parser.add_argument("-i", "--input",   dest="input_parameters_file",   type=str,   default='ptrain.dat', help="Input parameters file, e.g. ptrain.dat")
-    parser.add_argument("-x", "--xcond",   dest="x_conditions_file",       type=str,   default='xcond.dat',  help="X-conditions file, e.g. xcond.dat")
-    parser.add_argument("-o", "--output",  dest="outputs_file",            type=str,   default='ytrain.dat', help="Outputs parameters file, e.g. ytrain.dat")
-    args = parser.parse_args()
-
-    if (os.path.isfile(args.input_parameters_file)):
-        upars=np.loadtxt(args.input_parameters_file)  #(Nsamp x Npars)
-    else:
-        print('Error: %s not found' %args.input_parameters_file)
-        sys.exit(1)
-        
     Nsamp = upars.shape[0]
     Npars = upars.shape[1]
     print("Number of samples found: %d" %Nsamp)
     print("Uncertain parameters dimension: %d" %Npars)
-
-
-
-    if (os.path.isfile(args.x_conditions_file)):
-        xcond=np.loadtxt(args.x_conditions_file)  #(Ncond x Nx)
-    else:
-        print('Error: %s not found' %args.x_conditions_file)
-        sys.exit(1)
-        
-
+    
     Ncond = xcond.shape[0]
     Nx = xcond.shape[1]
     print("Number of x-conditions found: %d" %Ncond)
     print("x-conditions dimension: %d" %Nx)
-
-
 
     # Get the number of reactors and the list of files to open to replace strings
     print('Checking NetSmoke files to be open...\n')
@@ -152,27 +129,32 @@ def main(argv):
 	# input parameters file is presumed to contains columns of T_CSTR_1, TAU_CSTR_2, H_CSTR_2, L_PFR
 	# x-cond file is presumed to contains columns of phi_rich, T_CSTR_3
     # outputs will be 'T_cstr_2' ,'T_pfr_4', 'NO_pfr_4', 'NH3_pfr_4'
+    
     parnames = ['phi_rich', 'T_CSTR_3','phi_lean','T_CSTR_1','TAU_CSTR_2','H_CSTR_2','L_PFR']
-    for c in range(Ncond):
-    	#from x-cond:
-        phi_rich = xcond[c,0]
-        T_CSTR_3 = xcond[c,1]
-        phi_lean =  0.4 #to be computed from phi_rich and phi_global
+    
+    response = []
+    
+    for s in range(Nsamp):
+        #from upars
+        T_CSTR_1 = upars[s,0]            
+        TAU_CSTR_2 = upars[s,1]
+        H_CSTR_2 = upars[s,2]
+        L_PFR = upars[s,3]
+    	
+        
+        all_outputs_one_samp = []
 
-
-
-        for s in range(Nsamp):
-            #from upars
-            T_CSTR_1 = upars[s,0]            
-            TAU_CSTR_2 = upars[s,1]
-            H_CSTR_2 = upars[s,2]
-            L_PFR = upars[s,3]
-            
+        for c in range(Ncond):
+            #from x-cond:
+            phi_rich = xcond[c,0]
+            T_CSTR_3 = xcond[c,1]
+            phi_lean =  0.4 #to be computed from phi_rich and phi_global
+                        
             parvalues = [phi_rich,T_CSTR_3,phi_lean,T_CSTR_1,TAU_CSTR_2,H_CSTR_2,L_PFR]
             print("Running condition %d, sample %d" %(c,s))
 
             # Get mass flowrates
-            M = calc_mass_flowrates(P, y_nh3, phi_rich, phi_lean)
+            M = calc_mass_flowrates(Pwr, y_nh3, phi_rich, phi_lean)
     		
             plh = []
             for i in range(5):
@@ -205,7 +187,6 @@ def main(argv):
             fname = 'input.dic'
             for p,v in zip(plh+placeholders,M.reshape((25)).tolist()+newvals):
                 cmd = "sed -i '' -e 's/"+str(p)+"/"+str(v)+"/g' "+folder+fname
-                print(cmd)
                 os.system(cmd)
 
             print('Main input file is ready. Run NetSMOKE')
@@ -215,34 +196,78 @@ def main(argv):
             os.system('/Users/imacremote/Distributions/NetSmoke_Linux-Master/SeReNetSMOKEpp-master/bin/SeReNetSMOKEpp.sh --input input.dic')
             os.chdir(mydir)
             
-            # ---------------- WRITING OUTPUTS ---------------- #
+            # ---------------- READING CRN OUTPUTS ---------------- #
             print('Reading outputs...')
             
             output_names = ['T_cstr_2' ,'T_pfr_4', 'NO_pfr_4', 'NH3_pfr_4']
             output_values = []
             for item in output_names:
-                s = item.split('_')
-                outname = folder+'Output/Reactor.' + s[2] + '/Output.out'
+                spl = item.split('_')
+                outname = folder+'Output/Reactor.' + spl[2] + '/Output.out'
                 dt = pd.read_csv(outname, sep = '\s+')
             
                 H2O_out = dt['H2O_x(17)'].values[0]
                 O2_out = dt['O2_x(15)'].values[0]
                 
-                if s[0] == 'T':
+                if spl[0] == 'T':
                     output_values.append(dt['T[K](5)'].values[-1])
-                elif s[0] == 'NO':
+                elif spl[0] == 'NO':
                     output_values.append(dt['NO_x(21)'].values[-1]*1e6)
-                elif s[0] == 'NH3':
+                elif spl[0] == 'NH3':
                     output_values.append(dt['NH3_x(32)'].values[-1]*1e6)
             
-            # Write outputs to file
-            with open(args.outputs_file, 'a') as f:
-                for i in range(len(output_values)):
-                    f.write(str(output_values[i]) + '  ')
+            all_outputs_one_samp.append(output_values)  #will have 
+            
+            # ---------------- WRITING OUTPUTS TO FILE ---------------- #
+            if outfile:               
+                with open(outfile, 'a') as f:
+                    for i in range(len(output_values)):
+                        f.write(str(output_values[i]) + '  ')
         
-        with open(args.outputs_file, 'a') as f:
-            f.write("\n")  
+        # response is a Nsamp-rows and (Ncond*Noutputs)-columns matrix                
+        response.append([item for sublist in all_outputs_one_samp for item in sublist]) #append flattened out list
         
+        if outfile:
+            with open(outfile, 'a') as f:
+                f.write("\n")  
+                
+    return(response)
+        
+   
+
+        
+def main(argv):
+
+    ## Parse input arguments
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('outs', type=int,nargs='*',help="Range of indices of requested outputs (count from 1)")
+
+    parser.add_argument("-i", "--input",   dest="input_parameters_file",   type=str,   default='ptrain.dat', help="Input parameters file, e.g. ptrain.dat")
+    parser.add_argument("-x", "--xcond",   dest="x_conditions_file",       type=str,   default='xcond.dat',  help="X-conditions file, e.g. xcond.dat")
+    parser.add_argument("-o", "--output",  dest="outputs_file",            type=str,   default='ytrain.dat', help="Outputs parameters file, e.g. ytrain.dat")
+    args = parser.parse_args()
+
+    if (os.path.isfile(args.input_parameters_file)):
+        upars=np.loadtxt(args.input_parameters_file)  #(Nsamp x Npars)
+    else:
+        print('Error: %s not found' %args.input_parameters_file)
+        sys.exit(1)
+        
+
+    if (os.path.isfile(args.x_conditions_file)):
+        xcond=np.loadtxt(args.x_conditions_file)  #(Ncond x Nx)
+    else:
+        print('Error: %s not found' %args.x_conditions_file)
+        sys.exit(1)
+
+    
+    if (os.path.isfile(args.outputs_file)):
+        print('%s file already existing. New results will be appended to this file' %args.outputs_file)
+
+
+    # CALL FORWARD MODEL
+    
+    response = CRN_fwd_model(upars, xcond, outfile=args.outputs_file)
             
 
 if __name__ == "__main__":
