@@ -4,19 +4,10 @@ environment
     #graphics
 
 method
-  polynomial_chaos
-	
-	# TPQ - Order for tensor-products of Gaussian quadrature rules
-	# quadrature_order = 2
-
-	# SET THE QO FOR EACH VARIABLE
-	dimension_preference = 3 3 3
-
-    	sparse_grid_level = 1 #non_nested
-    	#sample_type lhs
-
-    	seed 12347
-    	samples_on_emulator = 1
+  sampling
+       sample_type random
+        samples = 500
+        seed 12345
 
 	# USE THIS IF YOU ARE INTERESTED IN CDF of RESPONSES
     	#num_probability_levels = 0 17 17
@@ -28,13 +19,7 @@ method
 	response_levels = 0 1 2 3 4 5 6 7 8 9 10
 	0 1 2 3 4 5 6 7 8 9 10
 	0 1 2 3 4 5 6 7 8 9 10
-
-	# USE THIS IF YOU WANT SOBOL INDICES in output
-    	variance_based_decomp
-	export_approx_points_file = 'PCE_approximations_out'
-	#annotated
-model
-  single
+  0 1 2 3 4 5 6 7 8 9 10
 
 variables
   active uncertain
@@ -59,7 +44,7 @@ interface
       evaluation_concurr 1
 
 responses
-  response_functions = 3
-  descriptors = 'T_cstr_2' 'NO_cstr_4' 'NH3_cstr_4'
+  response_functions = 4
+  descriptors = 'T_cstr_2' 'T_cstr_4' 'NO_cstr_4' 'NH3_cstr_4'
   no_gradients
   no_hessians

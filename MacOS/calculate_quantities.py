@@ -203,7 +203,7 @@ print('Outlet report =  ', print(prod.report()))
 import scipy.optimize as scopt
 x0 = [0.01, 0.5]       # Starting interval
 
-Tout = 1200.0   # Desired T out
+Tout = 1225.0   # Desired T out
 phi_rich = 1.2
 Power = 48.0
 y_nh3 = 1.0
@@ -250,3 +250,12 @@ def FindPhiLean(Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, itmax=1000, 
 
 phi_lean = FindPhiLean(Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
 print('phi_lean = ', phi_lean)
+
+# Calculate mass flow rates with the found phi_lean
+m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
+m_fuel, m_air_lean = calc_inlet_mass(Power, y_nh3, phi_lean)
+print('Fuel mass flowrate = ', m_fuel, ' kg/s')
+print('Air rich mass flowrate = ', m_air_rich, ' kg/s')
+print('Air lean mass flowrate = ', m_air_lean, ' kg/s')
+print('For an outlet temperature of ', Tout, ' K')
+print('With an inlet temperature of ', T_in_rich, ' K')
