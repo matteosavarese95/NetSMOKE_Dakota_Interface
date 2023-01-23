@@ -144,7 +144,7 @@ def calc_outlet_temp(Power, y_nh3, phi_rich, phi_lean, T_in_rich, T_in_lean, T_a
     pressure_controller = ct.Valve(R_rich, exhaust_res, K=0.01)
     
     # Add reactor wall and environment reservoir
-    air_env = ct.Solution('gri30.xml')
+    air_env  = ct.Solution('gri30.xml')
     air_env.TPX = T_amb, 101325.0, 'O2:0.21, N2:0.79'
     environment = ct.Reservoir(air_env)
     wall = ct.Wall(R_rich, environment, A=A, U=U)
@@ -211,6 +211,8 @@ T_in_rich = 800.0
 T_in_lean = 800.0
 
 def FindPhiLean(Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, itmax=1000, tol=1e-4, x0=[0.01, 0.6]):
+
+    print('Looking for phi_lean in the interval ', x0, ' with tolerance ', tol, ' and maximum number of iterations ', itmax, '...')
 
     it = 0
     residual = 1.0
