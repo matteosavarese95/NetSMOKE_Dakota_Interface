@@ -200,15 +200,15 @@ def calc_outlet_temp(Power, y_nh3, phi_rich, phi_lean, T_in_rich, T_in_lean, T_a
 # of the outlet temperature T
 # You select the temperature and the phi_lean is given by the solution of this system
 def Residual(phi_lean, *parameters):
-    T, Power, y_nh3, phi_rich, T_in_rich, T_in_lean = parameters
-    T_out_rich, T_out_lean, prod, exhaust_lean = calc_outlet_temp(Power, y_nh3, phi_rich, phi_lean, T_in_rich, T_in_lean)
+    T, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U = parameters
+    T_out_rich, T_out_lean, prod, exhaust_lean = calc_outlet_temp(Power, y_nh3, phi_rich, phi_lean, T_in_rich, T_in_lean, U=U)
     T_out_lean= np.float64(T_out_lean)
     res = (T - T_out_lean)/T # Relative residual
     return res
 
 
 
-def FindPhiLean(Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, itmax=1000, tol=1e-4, x0=[0.01, 0.6]):
+def FindPhiLean(Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U=0, itmax=1000, tol=1e-4, x0=[0.01, 0.6]):
 
     print('Looking for phi_lean in the interval ', x0, ' with tolerance ', tol, ' and maximum number of iterations ', itmax, '...')
 
@@ -217,7 +217,7 @@ def FindPhiLean(Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, itmax=1000, 
     while it < itmax and np.abs(residual) > tol:
 
         x = (x0[0] + x0[1])*0.5
-        residual = Residual(x, Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
+        residual = Residual(x, Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U)
 
         # Check if residual < tol
         if np.abs(residual) < tol:
@@ -232,8 +232,8 @@ def FindPhiLean(Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, itmax=1000, 
             print('Maximum number of iterations reached')
 
         # Calculate residual at the extremes
-        res0 = Residual(x0[0], Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
-        res1 = Residual(x0[1], Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
+        res0 = Residual(x0[0], Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U)
+        res1 = Residual(x0[1], Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U)
 
         # Check the signs
         if residual * res0 < 0:
@@ -260,21 +260,6 @@ def CRN_fwd_model(upars, xcond, outfile=None):
     print("Number of x-conditions found: %d" %Ncond)
     print("x-conditions dimension: %d" %Nx)
     
-    philean = np.zeros((Ncond,1))
-    for c in range(Ncond):
-        #from x-cond:
-        phi_rich = xcond[c,0]
-        T_CSTR_3 = xcond[c,1]
-                    
-        # Compute phi_lean such that outlet temperature is T_out            
-        x0 = [0.01, 0.6]       # Search interval, optional keyword argument
-        philean[c] = FindPhiLean( Tout, Pwr, y_nh3, phi_rich, T_CSTR_3, T_CSTR_3, x0=x0) 
-         
-    xcond = np.append(xcond,philean,axis=1)
-    
-    print("Operating conditions:")
-    for c in range(Ncond):
-        print(f'#{c} : phi_rich {xcond[c,0]}, phi_lean {xcond[c,2]}, T_in {xcond[c,1]}')
     
     # Get the number of reactors and the list of files to open to replace strings
     print('Checking NetSmoke files to be open...\n')
@@ -324,10 +309,13 @@ def CRN_fwd_model(upars, xcond, outfile=None):
             #from x-cond:
             phi_rich = xcond[c,0]
             T_CSTR_3 = xcond[c,1]
-            phi_lean = xcond[c,2]
+            x0 = [0.01, 0.6]       # Search interval, optional keyword argument
+            phi_lean = FindPhiLean( Tout, Pwr, y_nh3, phi_rich, T_CSTR_3, T_CSTR_3, U=H_CSTR_2, x0=x0) 
                     
             parvalues = [phi_rich,T_CSTR_3,phi_lean,T_CSTR_1,TAU_CSTR_2,H_CSTR_2,L_PFR]
             print("Running condition %d, sample %d" %(c,s))
+            print(f'phi_rich {phi_rich}, phi_lean {phi_lean}, T_in {T_CSTR_3}')
+            print(f'T_CSTR_1 {T_CSTR_1}, TAU_CSTR_2 {TAU_CSTR_2}, H_CSTR_2 {H_CSTR_2}, L_PFR {L_PFR}')
 
             # Get mass flowrates
             M = calc_mass_flowrates(Pwr, y_nh3, phi_rich, phi_lean)
