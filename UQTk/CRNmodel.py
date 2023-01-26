@@ -15,11 +15,11 @@ from genericpath import isfile
 import numpy as np
 import math
 import pandas as pd
-import scipy.optimize as scopt
 import cantera as ct
 
 
-path_to_netsmoke = '/Users/riccardo/Distributions/NetSmoke_Linux-Master/SeReNetSMOKEpp-master/bin'
+path_to_netsmoke = '/Users/imacremote/Distributions/NetSmoke_Linux-Master/SeReNetSMOKEpp-master/bin'
+chemfile = 'Stagni_NH3/chem.cti'
 # ---------------- USER DEFINED PARAMETERS ---------------- #
 Pwr = 48.0        # kW
 y_nh3 = 1.0     # mole fraction
@@ -58,6 +58,24 @@ def calc_inlet_mass(Power, y_nh3, phi):
 
     return m_fuel, m_air
 
+def CalcLHV(y_nh3):
+
+    # This function calculates the LHV of the fuel given the NH3 mole fraction
+
+    # Calculate the stoichiometric coefficients
+    y_h2 = 1 - y_nh3
+    y = y_h2*2 + y_nh3*3
+    w = y_nh3
+    x = 0.
+    m = x + y/4                                 # O2/fuel molar basis
+
+    # Calculate the fuel flowrate
+    nH2O_s = y/2;                               # Stoichiometric moles of H2O produced
+    DH_r   = -241.86*nH2O_s + 46.01*y_nh3;      # DH of global reaction kJ/mol
+    LHV = -1000*DH_r/(y_h2*2 + y_nh3*17);       # LHV kJ/kg
+
+    return LHV
+    
 # Calculate the mass flowrates of the network
 # This function defines the internal structure of the reactor network
 def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean):
@@ -91,6 +109,7 @@ def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean):
 
     return M
 
+# CALCULATE THE OUTLET TEMPERATURE OF THE NETWORK (not used atm)
 def calc_outlet_temp(Power, y_nh3, phi_rich, phi_lean, T_in_rich, T_in_lean, T_amb=300.0, U=0.0, A=1.0):
 
     # This function calculates the outlet temperature of the network given:
@@ -130,121 +149,102 @@ def calc_outlet_temp(Power, y_nh3, phi_rich, phi_lean, T_in_rich, T_in_lean, T_a
     Power_rich = f_rich*Power # kW
 
     # Create Cantera objects so that the calculation is more accurate
-    fuel = ct.Solution('gri30.xml')
+    fuel = ct.Solution(chemfile)
     fuel_comp = 'H2:' + str(y_h2) + ', NH3:' + str(y_nh3)
     fuel.TPX = 340.0, 101325.0, fuel_comp
 
     # Create air
-    air = ct.Solution('gri30.xml')
+    air = ct.Solution(chemfile)
     air.TPX = T_in_rich, 101325.0, 'O2:0.21, N2:0.79'
 
+    # Use quantity objects so that you can mix the fuel and air
+    qfuel = ct.Quantity(fuel, mass=m_fuel)
+    qair_rich  = ct.Quantity(air, mass=m_air_rich)
+
     # Combustion products
-    prod = ct.Solution('gri30.xml')
-    prod.TP = 1800.0, 101325.0,
+    prod_rich = qfuel + qair_rich
 
-    # Initialize reactor rich
-    R_rich = ct.IdealGasReactor(prod)
-    R_rich.volume = 0.001               # Arbitrary volume
+    # Calculate the chemical equilibrium
+    prod_rich.equilibrate('HP')
+    T_out_rich = prod_rich.T
 
-    # Create reservoir and mass flow controllers
-    fuel_res = ct.Reservoir(fuel)
-    air_res  = ct.Reservoir(air)
-    exhaust_res = ct.Reservoir(prod)
-    # Mass flow controllers
-    fuel_mfc = ct.MassFlowController(fuel_res, R_rich, mdot=m_fuel)
-    air_rich_mfc = ct.MassFlowController(air_res, R_rich, mdot=m_air_rich)
-    # Pressure controller
-    pressure_controller = ct.Valve(R_rich, exhaust_res, K=0.01)
+    # Now mix the remaining air with the products of the rich combustion
+    qair_lean  = ct.Quantity(air, mass=m_air_lean)
+
+    # Second stage
+    prod_lean = prod_rich + qair_lean
+    prod_lean.equilibrate('HP')
+
+    # Calculate the outlet temperature of the lean combustion
+    T_out_lean = prod_lean.T
+
+    return T_out_rich, T_out_lean, prod_rich, prod_lean
+
+# This function directly calculates the phi_lean as a function of the outlet temperature T
+def CalcPhiLean(Tout, *parameters):
+
+    T, Power, y_nh3, phi_rich, T_in_rich, T_in_lean = parameters
+
+    # Calculate the mass flowrate of the fuel and air
+    m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
+    print('m_fuel = ' + str(m_fuel) + ' kg/s')
+    print('m_air_rich = ' + str(m_air_rich) + ' kg/s')
+    print('phi_rich = ' + str(phi_rich))
+
+    # Use cantera to find equilibrium mixture of rich stage
+    fuel = ct.Solution('Stagni_NH3/chem.cti')
+    fuel_comp = 'NH3:1'
+    fuel.TPX = 340.0, 101325.0*5, fuel_comp
+
+    # Create air
+    air = ct.Solution('Stagni_NH3/chem.cti')
+    air.TPX = T_in_rich, 101325.0*5, 'O2:0.21, N2:0.79'
+
+    # Use quantity objects so that you can mix the fuel and air
+    qfuel = ct.Quantity(fuel, mass=m_fuel)
+    qair_rich  = ct.Quantity(air, mass=m_air_rich)
+
+    # Combustion products
+    prod_rich = qfuel + qair_rich
+
+    # Calculate the chemical equilibrium
+    prod_rich.equilibrate('HP')
+
+    # Do a manual thermal balance to find the mass of air in the lean zone
+    # Calculate the mass of fuel from prod_rich
+    y_nh3_rich = prod_rich.Y[fuel.species_index('NH3')]
+    y_h2_rich = prod_rich.Y[fuel.species_index('H2')]
+    m_fuel_lean = prod_rich.mass * (y_h2_rich + y_nh3_rich)
     
-    # Add reactor wall and environment reservoir
-    air_env  = ct.Solution('gri30.xml')
-    air_env.TPX = T_amb, 101325.0, 'O2:0.21, N2:0.79'
-    environment = ct.Reservoir(air_env)
-    wall = ct.Wall(R_rich, environment, A=A, U=U)
+    # Calculate the power left
+    LHV_NH3 =    CalcLHV(y_nh3) * 1000                       # J/kg
+    LHV_H2 =   CalcLHV(1 - y_nh3) * 1000                   # J/kg
+    LHV = (y_h2_rich * LHV_H2 + y_nh3_rich * LHV_NH3)/(y_h2_rich + y_nh3_rich)        # J/kg
+    Power_lean = m_fuel_lean * LHV                          # W
 
-    # Create reactor network and simulate it
-    sim = ct.ReactorNet([R_rich])
-    sim.advance_to_steady_state()
+    # Create a new quantity object for the lean zone
+    m_air_lean = (Power_lean - prod_rich.mass * qair_rich.cp_mass * (Tout - prod_rich.T))/(qair_rich.cp_mass*(Tout - T_in_lean))
 
-    T_out_rich = prod.T
+    # Now get the equivalence ratio of the lean zone
+    # Calculate the fraction of power reacted in the rich combustion
+    y_h2 = 1 - y_nh3
+    y = y_h2*2 + y_nh3*3
+    w = y_nh3
+    x = 0.
+    m = x + y/4                                 # O2/fuel molar basis
+    f = 0.79/0.21                               # Ratio between N2 and O2 in air
+    af_mol  = m + m*f                           # Air/fuel stoichiometric molar basis
+    af_mass = af_mol*29/(y_h2*2 + y_nh3*17)     # Air/fuel stoichiometric mass basis
 
-    # Now the state of prod should be consistent with the first stage 
-    # combustion products, but for safety we sync the reservoir
-    exhaust_res.syncState()
+    excess_lean = m_air_lean/(af_mass*m_fuel) # Equivalence ratio of the lean zone
+    excess_global = (m_air_lean + m_air_rich)/(af_mass*m_fuel)
 
-    # Now the second reactor
-    exhaust_lean = ct.Solution('gri30.xml')
-    exhaust_lean.TP = 1300.0, 101325.0
+    phi_lean = 1/(1+excess_lean)
+    phi_global = 1/(1+excess_global)
+     
 
-    R_lean = ct.IdealGasReactor(exhaust_lean)
-    R_lean.volume = 0.01    # Arbitrary volume
-
-    # Create reservoirs
-    exhaust_lean_res = ct.Reservoir(exhaust_lean)
-    # Create mass flow controllers
-    inlet_lean_products = ct.MassFlowController(exhaust_res, R_lean, mdot=m_air_rich+m_fuel)
-    inlet_lean_air      = ct.MassFlowController(air_res, R_lean, mdot=m_air_lean)
-    # Pressure controller
-    pressure_controller_2 = ct.Valve(R_lean, exhaust_lean_res, K=0.01)
-
-    # Create the reactor network and simulate it
-    sim2 = ct.ReactorNet([R_lean])
-    sim2.advance_to_steady_state()
-
-    # Get outlet temperature
-    T_out_lean = exhaust_lean.T
-
-    return T_out_rich, T_out_lean, prod, exhaust_lean
-
-# This is the residual function (f(x) = residual) in order to find phi_lean as a function
-# of the outlet temperature T
-# You select the temperature and the phi_lean is given by the solution of this system
-def Residual(phi_lean, *parameters):
-    T, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U = parameters
-    T_out_rich, T_out_lean, prod, exhaust_lean = calc_outlet_temp(Power, y_nh3, phi_rich, phi_lean, T_in_rich, T_in_lean, U=U)
-    T_out_lean= np.float64(T_out_lean)
-    res = (T - T_out_lean)/T # Relative residual
-    return res
-
-
-
-def FindPhiLean(Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U=0, itmax=1000, tol=1e-4, x0=[0.01, 0.6]):
-
-    print('Looking for phi_lean in the interval ', x0, ' with tolerance ', tol, ' and maximum number of iterations ', itmax, '...')
-
-    it = 0
-    residual = 1.0
-    while it < itmax and np.abs(residual) > tol:
-
-        x = (x0[0] + x0[1])*0.5
-        residual = Residual(x, Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U)
-
-        # Check if residual < tol
-        if np.abs(residual) < tol:
-            print('Convergence reached at iteration number ', it)
-            print('Phi_lean = ', x)
-            print('Residual = ', residual)
-        else:
-            it = it + 1
-            print('Iteration number ', it, '     residual = ', residual)
-        
-        if it == itmax:
-            print('Maximum number of iterations reached')
-
-        # Calculate residual at the extremes
-        res0 = Residual(x0[0], Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U)
-        res1 = Residual(x0[1], Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean, U)
-
-        # Check the signs
-        if residual * res0 < 0:
-            x0[1] = x
-        elif residual * res1 < 0:
-            x0[0] = x
-        else:
-            print('Error, solution cannot be found in the chose interval')
-            break
-
-    return x
+    #return phi_lean, phi_global, m_air_rich, m_air_lean
+    return phi_lean
 
 
 
@@ -309,8 +309,8 @@ def CRN_fwd_model(upars, xcond, outfile=None):
             #from x-cond:
             phi_rich = xcond[c,0]
             T_CSTR_3 = xcond[c,1]
-            x0 = [0.01, 0.6]       # Search interval, optional keyword argument
-            phi_lean = FindPhiLean( Tout, Pwr, y_nh3, phi_rich, T_CSTR_3, T_CSTR_3, U=H_CSTR_2, x0=x0) 
+            parameters = (Tout, Pwr, y_nh3, phi_rich, T_CSTR_3, T_CSTR_3)
+            phi_lean = CalcPhiLean( Tout, *parameters) 
                     
             parvalues = [phi_rich,T_CSTR_3,phi_lean,T_CSTR_1,TAU_CSTR_2,H_CSTR_2,L_PFR]
             print("Running condition %d, sample %d" %(c,s))
@@ -424,10 +424,17 @@ def main(argv):
         print('Error: %s not found' %args.x_conditions_file)
         sys.exit(1)
 
-    
+    # take care of previously generated samples
+    if (os.path.isdir('CRN_c0_s0')):
+        os.system('mkdir old_samples')
+        os.system('mv CRN_c* old_samples')
+        if (os.path.isfile(args.outputs_file)):
+            os.system(f'mv {args.outputs_file} old_samples/.')
+        os.system('mv old_samples old_samples_$(date +%Y-%m-%dT%H%M%S)')
+        
+        
     if (os.path.isfile(args.outputs_file)):
-        print('%s file already existing. New results will be appended to this file' %args.outputs_file)
-
+        print('%s file already existing !!! New results will be appended to this file' %args.outputs_file)
 
     # CALL FORWARD MODEL
     
