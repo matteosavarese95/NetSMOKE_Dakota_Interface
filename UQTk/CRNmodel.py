@@ -260,6 +260,8 @@ def CRN_fwd_model(upars, xcond, outfile=None):
     print("Number of x-conditions found: %d" %Ncond)
     print("x-conditions dimension: %d" %Nx)
     
+    with open('discarded_backdoor.dat', 'w') as fb:
+        fb.write("# discarded samples. Count starts from 0. \n")
     
     # Get the number of reactors and the list of files to open to replace strings
     print('Checking NetSmoke files to be open...\n')
@@ -294,6 +296,7 @@ def CRN_fwd_model(upars, xcond, outfile=None):
     parnames = ['phi_rich', 'T_CSTR_3','phi_lean','T_CSTR_1','TAU_CSTR_2','H_CSTR_2','L_PFR']
     
     response = []
+    discarded = []
     
     for s in range(Nsamp):
         #from upars
@@ -309,10 +312,11 @@ def CRN_fwd_model(upars, xcond, outfile=None):
             #from x-cond:
             phi_rich = xcond[c,0]
             T_CSTR_3 = xcond[c,1]
-            parameters = (Tout, Pwr, y_nh3, phi_rich, T_CSTR_3, T_CSTR_3)
+            parameters = (Tout, Pwr, y_nh3, phi_rich, T_CSTR_1, T_CSTR_3)
             phi_lean = CalcPhiLean( Tout, *parameters) 
                     
             parvalues = [phi_rich,T_CSTR_3,phi_lean,T_CSTR_1,TAU_CSTR_2,H_CSTR_2,L_PFR]
+            print('####################################################################################')
             print("Running condition %d, sample %d" %(c,s))
             print(f'phi_rich {phi_rich}, phi_lean {phi_lean}, T_in {T_CSTR_3}')
             print(f'T_CSTR_1 {T_CSTR_1}, TAU_CSTR_2 {TAU_CSTR_2}, H_CSTR_2 {H_CSTR_2}, L_PFR {L_PFR}')
@@ -357,7 +361,7 @@ def CRN_fwd_model(upars, xcond, outfile=None):
             
             # ---------------- RUNNING THE SIMULATION ---------------- #
             os.chdir(mydir+'/'+folder)
-            os.system(path_to_netsmoke + '/SeReNetSMOKEpp.sh --input input.dic')
+            os.system(f'{path_to_netsmoke}/SeReNetSMOKEpp.sh --input input.dic > netsmoke.out')
             os.chdir(mydir)
             
             # ---------------- READING CRN OUTPUTS ---------------- #
@@ -368,7 +372,7 @@ def CRN_fwd_model(upars, xcond, outfile=None):
             for item in output_names:
                 spl = item.split('_')
                 outname = folder+'Output/Reactor.' + spl[2] + '/Output.out'
-                dt = pd.read_csv(outname, sep = '\s+')
+                dt = pd.read_csv(outname, sep = '\s+', on_bad_lines='skip')
             
                 H2O_out = dt['H2O_x(17)'].values[0]
                 O2_out = dt['O2_x(15)'].values[0]
@@ -376,28 +380,35 @@ def CRN_fwd_model(upars, xcond, outfile=None):
                 if spl[0] == 'T':
                     output_values.append(dt['T[K](5)'].values[-1])
                 elif spl[0] == 'NO':
-                    output_values.append(dt['NO_x(21)'].values[-1]*1e6)
+                    output_values.append(dt['NO_x(21)'].values[-1]*1e6)  #ppm
                 elif spl[0] == 'NH3':
-                    output_values.append(dt['NH3_x(32)'].values[-1]*1e6)
+                    output_values.append(dt['NH3_x(32)'].values[-1]*1e6)  #ppm
             
-            all_outputs_one_samp.append(output_values)  #will have 
+            all_outputs_one_samp.append(output_values)  
             
+           
+            
+        # response is a Nsamp-rows and (Ncond*Noutputs)-columns matrix  
+        
+        #add this sample response, unless the output is not good
+        if (any(np.array(all_outputs_one_samp)[:,1] < Tout*0.95)):
+            print(f'!!!!!!!!! Discarding sample {s} because Tout is too low')
+            discarded.append(s)
+            with open('discarded_backdoor.dat', 'a') as fb:
+                fb.write(str(s))
+                fb.write("\n")
+        else:
+            all_outputs_one_samp_flat = [item for sublist in all_outputs_one_samp for item in sublist]            
+            response.append(all_outputs_one_samp_flat) #append flattened out list
+        
             # ---------------- WRITING OUTPUTS TO FILE ---------------- #
-            if outfile:               
+            if outfile:
                 with open(outfile, 'a') as f:
-                    for i in range(len(output_values)):
-                        f.write(str(output_values[i]) + '  ')
-        
-        # response is a Nsamp-rows and (Ncond*Noutputs)-columns matrix                
-        response.append([item for sublist in all_outputs_one_samp for item in sublist]) #append flattened out list
-        
-        if outfile:
-            with open(outfile, 'a') as f:
-                f.write("\n")  
+                    f.write(' '.join(str(x) for x in all_outputs_one_samp_flat))
+                    f.write("\n")  
                 
-    return(response)
-        
-   
+    return(response, discarded)
+
 
         
 def main(argv):
@@ -407,6 +418,7 @@ def main(argv):
     parser.add_argument('outs', type=int,nargs='*',help="Range of indices of requested outputs (count from 1)")
 
     parser.add_argument("-i", "--input",   dest="input_parameters_file",   type=str,   default='ptrain.dat', help="Input parameters file, e.g. ptrain.dat")
+    parser.add_argument("-q", "--qsamp",   dest="input_germs_samples_file",type=str,   default='qtrain.dat', help="Input germ samples file, e.g. qtrain.dat")
     parser.add_argument("-x", "--xcond",   dest="x_conditions_file",       type=str,   default='xcond.dat',  help="X-conditions file, e.g. xcond.dat")
     parser.add_argument("-o", "--output",  dest="outputs_file",            type=str,   default='ytrain.dat', help="Outputs parameters file, e.g. ytrain.dat")
     args = parser.parse_args()
@@ -416,13 +428,21 @@ def main(argv):
     else:
         print('Error: %s not found' %args.input_parameters_file)
         sys.exit(1)
-        
+ 
+ 
+    if (os.path.isfile(args.input_germs_samples_file)):
+        qpars=np.loadtxt(args.input_germs_samples_file)  #(Nsamp x Npars)
+    else:
+        print('Error: %s not found' %args.input_germs_samples_file)
+        sys.exit(1)       
+
 
     if (os.path.isfile(args.x_conditions_file)):
         xcond=np.loadtxt(args.x_conditions_file)  #(Ncond x Nx)
     else:
         print('Error: %s not found' %args.x_conditions_file)
         sys.exit(1)
+
 
     # take care of previously generated samples
     if (os.path.isdir('CRN_c0_s0')):
@@ -434,11 +454,23 @@ def main(argv):
         
         
     if (os.path.isfile(args.outputs_file)):
-        print('%s file already existing !!! New results will be appended to this file' %args.outputs_file)
+        os.system(f'mv {args.outputs_file} {args.outputs_file}_$(date +%Y-%m-%dT%H%M%S)')
+        
 
     # CALL FORWARD MODEL
     
-    response = CRN_fwd_model(upars, xcond, outfile=args.outputs_file)
+    response, discarded = CRN_fwd_model(upars, xcond, outfile=args.outputs_file)
+    
+    # take care of failed samples
+    if len(discarded):
+        print('updating input files removing failed samples ...')
+        upars_survived = np.delete(upars, discarded, axis=0)
+        qpars_survived = np.delete(qpars, discarded, axis=0)
+        os.system(f'mv {args.input_parameters_file} {args.input_parameters_file}.original')
+        os.system(f'mv {args.input_germs_samples_file} {args.input_germs_samples_file}.original')
+        np.savetxt(args.input_parameters_file, upars_survived)
+        np.savetxt(args.input_germs_samples_file, qpars_survived)
+
             
 
 if __name__ == "__main__":
