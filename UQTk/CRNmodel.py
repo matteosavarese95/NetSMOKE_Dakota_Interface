@@ -259,7 +259,10 @@ def CRN_fwd_model(upars, xcond, outfile=None):
     Nx = xcond.shape[1]
     print("Number of x-conditions found: %d" %Ncond)
     print("x-conditions dimension: %d" %Nx)
-    
+
+
+    if (os.path.isfile('discarded_backdoor.dat')):
+        os.system('mv discarded_backdoor.dat discarded_$(date +%Y-%m-%dT%H%M%S).dat')
     with open('discarded_backdoor.dat', 'w') as fb:
         fb.write("# discarded samples. Count starts from 0. \n")
     
@@ -469,6 +472,7 @@ def main(argv):
         os.system(f'mv {args.input_parameters_file} {args.input_parameters_file}.original')
         os.system(f'mv {args.input_germs_samples_file} {args.input_germs_samples_file}.original')
         np.savetxt(args.input_parameters_file, upars_survived)
+        :q
         np.savetxt(args.input_germs_samples_file, qpars_survived)
 
             
