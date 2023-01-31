@@ -472,7 +472,6 @@ def main(argv):
         os.system(f'mv {args.input_parameters_file} {args.input_parameters_file}.original')
         os.system(f'mv {args.input_germs_samples_file} {args.input_germs_samples_file}.original')
         np.savetxt(args.input_parameters_file, upars_survived)
-        :q
         np.savetxt(args.input_germs_samples_file, qpars_survived)
 
             
