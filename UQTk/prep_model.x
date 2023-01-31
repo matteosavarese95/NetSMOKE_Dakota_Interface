@@ -40,25 +40,29 @@ echo "0.04 0.06" >> prange.dat
 echo "0.9411768 1.4117652" >> prange.dat
 echo "2000 6000" >> prange.dat
 
-NTRAIN=10  # N
-NVAL=2      # V
-SAMPLING=rand
+NTRAIN=2048   # N sampling points
+NVAL=128     # V sampling points
+SAMPLING=rand  #or quad
 
 
 #Generate x-conditions in xcond.dat
 
 #TBD
+#in python would be
+#for i in np.arange(1,1.6,0.1):
+#    for j in np.arange(800,1050,50):
+#        print(i,j)
 
 
 
-# Prepare inputs
+# Prepare random samples
 ${UQPC}/uq_pc.py -r offline_prep -p prange.dat -s $SAMPLING -n $NTRAIN -v $NVAL
-
+#${UQPC}/uq_pc.py -r offline_prep -p prange.dat -s quad -n 4 
 
 ###################################################################################
 ###################################################################################
 
 
-# Test function
-python CRNmodel.py -i ptrain.dat -o ytrain.dat -x xcond.dat 
-python CRNmodel.py -i pval.dat -o yval.dat -x xcond.dat 
+# Generate forward model evaluations 
+python CRNmodel.py -i ptrain.dat -q qtrain.dat -o ytrain.dat -x xcond.dat 
+python CRNmodel.py -i pval.dat   -q qval.dat   -o yval.dat   -x xcond.dat 
