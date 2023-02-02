@@ -151,17 +151,17 @@ for resp in range(response.shape[1]):
     allPDF.append(PDF_data)
 
 
- cond = 0   
- for resp in range(response.shape[1]):
-     if(resp >0 and resp % 4 == 0): cond=cond+1
-     #xpts, PDF_data= KDE(response[:,resp])
-     fig,ax = plt.subplots(figsize=(4,3))
-     plt.plot(allxpts[resp], allPDF[resp], linewidth=2, color='r', label= f'KDE, Monte Carlo sampling')
-     plt.title(f'{obstitle[resp]} - phiR {xcond[cond,0]} - Tin {xcond[cond,1]}')
-     plt.xlim(xlimits[resp])
-     plt.xlabel(f'{obslabel[resp]}')
-     plt.savefig(f"{folder}/KDE_{obstitle[resp]}_cond{cond}.png",dpi=800, transparent=False)
-     plt.close()
+cond = 0   
+for resp in range(response.shape[1]):
+    if(resp >0 and resp % 4 == 0): cond=cond+1
+    #xpts, PDF_data= KDE(response[:,resp])
+    fig,ax = plt.subplots(figsize=(4,3))
+    plt.plot(allxpts[resp], allPDF[resp], linewidth=2, color='r', label= f'KDE, Monte Carlo sampling')
+    plt.title(f'{obstitle[resp]} - phiR {xcond[cond,0]} - Tin {xcond[cond,1]}')
+    plt.xlim(xlimits[resp])
+    plt.xlabel(f'{obslabel[resp]}')
+    plt.savefig(f"{folder}/KDE_{obstitle[resp]}_cond{cond}.png",dpi=800, transparent=False)
+    plt.close()
     
 
 # plot joint PDFs
