@@ -165,6 +165,7 @@ for resp in range(response.shape[1]):
     
 
 # plot joint PDFs
+# here you will need the correct amount of points in the prior data
 
 plot_grid_pdf2d('T_cstr_2','NO_pfr_4')
 
