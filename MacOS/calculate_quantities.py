@@ -232,12 +232,12 @@ def CalcPhiLean(Tout, *parameters):
 
     return phi_lean, phi_global, m_air_rich, m_air_lean
 
-Tout = 1225.0   # Desired T out
+Tout = 1200.0   # Desired T out
 phi_rich = 1.2
 Power = 48.0
 y_nh3 = 1.0
-T_in_rich = 800.0
-T_in_lean = 800.0
+T_in_rich = 1000.0
+T_in_lean = 1000.0
 
 parameters = (Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
 phi_lean, phi_global, m_air_rich, m_air_lean = CalcPhiLean(Tout, *parameters)
