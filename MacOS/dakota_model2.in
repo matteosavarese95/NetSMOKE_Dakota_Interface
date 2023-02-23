@@ -16,10 +16,10 @@ method
       	#	.001 .01 .05 .1 .15 .2 .3 .4 .5 .6 .7 .8 .85 .9 .95 .99 .999
     	#cumulative distribution
 	 
-	response_levels = 0 1 2 3 4 5 6 7 8 9 10
-	0 1 2 3 4 5 6 7 8 9 10
-	0 1 2 3 4 5 6 7 8 9 10
-  0 1 2 3 4 5 6 7 8 9 10
+	#response_levels = 0 1 2 3 4 5 6 7 8 9 10
+	#0 1 2 3 4 5 6 7 8 9 10
+	#0 1 2 3 4 5 6 7 8 9 10
+  #0 1 2 3 4 5 6 7 8 9 10
 
 variables
   active uncertain
@@ -28,10 +28,10 @@ variables
     std_deviations      =  10.0	
     descriptors         =  'T_cstr_1'
 
-  uniform_uncertain = 1
-    lower_bounds = 	1.1		
-    upper_bounds =	1.3		
-    descriptors =   'phi_rich'	
+  uniform_uncertain = 2
+    lower_bounds = 	1.1		        0.05
+    upper_bounds =	1.3		        0.15
+    descriptors =   'phi_rich'	  'F1'
 
 interface
       analysis_drivers 	= 'driver_model2.sh'

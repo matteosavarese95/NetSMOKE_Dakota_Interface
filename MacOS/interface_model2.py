@@ -45,38 +45,46 @@ def calc_inlet_mass(Power, y_nh3, phi):
     return m_fuel, m_air
 
 # Calculate the mass flowrates of the network
-def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean):
+def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1, stagn2):
 
     # This function calculates the mass flow rates across the reactors 
     # and stores them in a Matrix M[i,j] where M[i,j] is the mass flow rate
     # from reactor i to reactor j. Please note that this function defines
     # the internal structure of the reactor network. The user should modify
     # this function to change the reactor network model.
-    # 
+    # stagn1, stagn2 are the fractions of the bypass air that goes to the
+    # 1st stagnation reactor and 2nd stagnation reactor respectively.
+    # They can be specified by the user from the Dakota input file.
+
+    # Global quantities
     m_fuel, m_air_tot = calc_inlet_mass(Power, y_nh3, phi_lean)
     m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
     m_air_bypass = m_air_tot - m_air_rich
 
+    # Initialize mass flowrates matrix
     M = np.zeros((8,8))
 
     # First combustion zone
     M[0,2] = m_fuel                 # To flame PSR
     M[1,2] = m_air_rich             # To flame PSR
 
+    # The quenching reactor is number 7
     M[2,7] = m_fuel + m_air_rich    # From ignition to quenching PSR
     M[7,3] = m_fuel + m_air_rich    # From quenching to flame PFR
     M[3,4] = m_fuel + m_air_rich    # From flame to first stagnation reactor
 
     # Stagnation zone
-    stagn1 = 0.1
-    stagn2 = 0.15
     stagn3 = 1 - stagn1 - stagn2
     M[1,4] = m_air_bypass*stagn1
     M[1,5] = m_air_bypass*stagn2
     M[1,6] = m_air_bypass*stagn3
 
+    # Sequential mass flowrates
     M[4,5] = m_fuel + m_air_rich + m_air_bypass*stagn1
     M[5,6] = m_fuel + m_air_rich + m_air_bypass*stagn1 + m_air_bypass*stagn2
+
+    print('Stagn1 = ', stagn1)
+    print('Stagn2 = ', stagn2)
 
 
     return M
@@ -311,13 +319,28 @@ else:
     print('Error: phi_rich or T_cstr_1 not found in input file')
     sys.exit(1)
 
+# See if there are stagn1 and stagn2 in the input file
+# For simplicity they can be called F1 and F2
+if 'F1' and 'F2' in names:
+    stagn1 = float(values[names.index('F1')])
+    stagn2 = float(values[names.index('F2')])
+elif 'F1' in names and 'F2' not in names:
+    stagn1 = float(values[names.index('F1')])
+    stagn2 = 0.15
+elif 'F1' not in names and 'F2' in names:
+    stagn2 = float(values[names.index('F2')])
+    stagn1 = 0.1
+else:
+    stagn1 = 0.1
+    stagn2 = 0.15
+
 # Calculate phi lean
 T_in_lean = T_cstr_1    # K
 parameters = (Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
 phi_lean, phi_global, m_air_rich, m_air_lean = CalcPhiLean(Tout, *parameters)
 
 # Get mass flowrates
-M = calc_mass_flowrates(P, y_nh3, phi_rich, phi_global)
+M = calc_mass_flowrates(P, y_nh3, phi_rich, phi_global, stagn1, stagn2)
 
 # Get the number of reactors and the list of files to open to replace strings
 print('Checking which files to open...\n')
