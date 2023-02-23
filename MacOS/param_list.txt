@@ -1,0 +1,9 @@
+Parametro   Range       Distribuzione   Unita
+-----------------------------------------------
+U_CSTR_7    5.0-25.0    Uniforme        W/m2/K
+V_CSTR_2    31.0-100.0  Uniforme        cm3
+L_PFR_3     19.5-60.0   Uniforme        mm
+F1          0.05-0.15   Uniforme        -
+F2          0.05-0.15   Uniforme        -
+TAU_CSTR_4  0.001-0.01  Uniforme        s   (in realtà converrebbe V dal CFD)
+TAU_CSTR_5  0.01-0.05   Uniforme        s   (in realtà converrebbe V dal CFD)
