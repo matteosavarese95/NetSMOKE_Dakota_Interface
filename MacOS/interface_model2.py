@@ -5,6 +5,16 @@ import numpy as np
 import pandas as pd
 import cantera as ct
 
+# ---------------- NEW MODEL STRUCTURE ---------------- #
+# REACTOR 0: Fuel inlet (fake reactor), T = T_fuel (300 K) fixed
+# REACTOR 1: Air inlet (fake reactor), T = T_rich  (800 - 1000 K) 
+# REACTOR 2: Ignition flame PSR, adiabatic reactor, small volume (~30cm3)
+# REACTOR 3: Quenching reactor, non-adiabatic, U = 10-20 W/m2/K, small volume (in theory should not be reactive)
+# REACTOR 4: First post-flame PFR (only rich mixture) it simulates the duct (tau ~ 0.02s)
+# REACTOR 5: First lean combustion reactor (tau ~ 0.001 s), rich mixture reacts with a portion of the lean mixture
+# REACTOR 6: Second lean combustion reactor (stagnation zone), rich mixture reacts with a portion of the lean mixture
+# REACTOR 7: Third lean combustion reactor, now is isothermal (T = 1200 K) because of the heat loss in the quenching
+
 # ---------------- USER DEFINED PARAMETERS ---------------- #
 P = 48.0                # kW
 y_nh3 = 1.0             # mole fraction
@@ -69,23 +79,19 @@ def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1, stagn2):
     M[1,2] = m_air_rich             # To flame PSR
 
     # The quenching reactor is number 7
-    M[2,7] = m_fuel + m_air_rich    # From ignition to quenching PSR
-    M[7,3] = m_fuel + m_air_rich    # From quenching to flame PFR
-    M[3,4] = m_fuel + m_air_rich    # From flame to first stagnation reactor
+    M[2,3] = m_fuel + m_air_rich    # From ignition to quenching PSR
+    M[3,4] = m_fuel + m_air_rich    # From quenching to FIRST POST-FLAME flame PFR
+    M[4,5] = m_fuel + m_air_rich    # From flame to first stagnation reactor
 
     # Stagnation zone
     stagn3 = 1 - stagn1 - stagn2
-    M[1,4] = m_air_bypass*stagn1
-    M[1,5] = m_air_bypass*stagn2
-    M[1,6] = m_air_bypass*stagn3
+    M[1,5] = m_air_bypass*stagn1
+    M[1,6] = m_air_bypass*stagn2
+    M[1,7] = m_air_bypass*stagn3
 
     # Sequential mass flowrates
-    M[4,5] = m_fuel + m_air_rich + m_air_bypass*stagn1
-    M[5,6] = m_fuel + m_air_rich + m_air_bypass*stagn1 + m_air_bypass*stagn2
-
-    print('Stagn1 = ', stagn1)
-    print('Stagn2 = ', stagn2)
-
+    M[5,6] = m_fuel + m_air_rich + m_air_bypass*stagn1
+    M[6,7] = m_fuel + m_air_rich + m_air_bypass*stagn1 + m_air_bypass*stagn2
 
     return M
 
@@ -270,7 +276,6 @@ def CalcPhiLean(Tout, *parameters):
     phi_lean = 1/(1+excess_lean)
     phi_global = 1/(1+excess_global)
      
-
     return phi_lean, phi_global, m_air_rich, m_air_lean
 
 # ---------------- READING DAKOTA INPUTS ---------------- #

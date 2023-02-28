@@ -3,8 +3,8 @@ Dictionary PerfectlyStirredReactor
       @KineticsFolder     dummy; 
       @InletStatus        Inlet-Mixture; 
       @Type               NonIsothermal-ConstantPressure; 
-      @MassFlowRate      M4 kg/s;   
-      @ResidenceTime      1.000000e-02 s;   
+      @MassFlowRate      M6 kg/s;   
+      @ResidenceTime      5.000000e-02 s;   
 } 
 
  Dictionary Inlet-Mixture 

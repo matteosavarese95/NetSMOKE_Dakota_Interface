@@ -6,7 +6,7 @@ Dictionary PerfectlyStirredReactor
       @GlobalThermalExchangeCoefficient   20 W/m2/K; 
       @ExchangeArea               1 m2; 
       @EnvironmentTemperature     800 K;  
-      @MassFlowRate      M7 kg/s;   
+      @MassFlowRate      M3 kg/s;   
       @ResidenceTime      1.000000e-05 s;   
 } 
 
