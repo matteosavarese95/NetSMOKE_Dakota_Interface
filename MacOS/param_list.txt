@@ -1,8 +1,8 @@
 Parametro   Range       Distribuzione   Unita
 -----------------------------------------------
-U_CSTR_7    5.0-25.0    Uniforme        W/m2/K  (anche Normal con media 15 e deviazione 5 può andare bene)
+U_CSTR_3    5.0-25.0    Uniforme        W/m2/K  (anche Normal con media 15 e deviazione 5 può andare bene)
 V_CSTR_2    31.0-100.0  Uniforme        cm3     (questo deve essere almeno 30 quindi Uniforme meglio)
-L_PFR_3     19.5-60.0   Uniforme        mm      (questo anche Normal va bene con media 40 e deviazione 10)
+L_PFR_4     19.5-60.0   Uniforme        mm      (questo anche Normal va bene con media 40 e deviazione 10)
 F1          0.05-0.15   Uniforme        -       (Preferibile uniform ma anche Normal va bene)
 F2          0.05-0.15   Uniforme        -       (Preferibile uniform ma anche Normal va bene)
 TAU_CSTR_4  0.001-0.01  Uniforme        s       (in realtà converrebbe V dal CFD)

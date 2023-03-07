@@ -55,7 +55,7 @@ def calc_inlet_mass(Power, y_nh3, phi):
     return m_fuel, m_air
 
 # Calculate the mass flowrates of the network
-def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1, stagn2):
+def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1=0.1, stagn2=0.15, entr=0.976):
 
     # This function calculates the mass flow rates across the reactors 
     # and stores them in a Matrix M[i,j] where M[i,j] is the mass flow rate
@@ -76,18 +76,18 @@ def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1, stagn2):
 
     # First combustion zone
     M[0,2] = m_fuel                 # To flame PSR
-    M[1,2] = m_air_rich             # To flame PSR
+    M[1,2] = m_air_rich*entr        # To flame PSR (we consider the fraction of air that is entrained)
 
     # The quenching reactor is number 7
-    M[2,3] = m_fuel + m_air_rich    # From ignition to quenching PSR
-    M[3,4] = m_fuel + m_air_rich    # From quenching to FIRST POST-FLAME flame PFR
-    M[4,5] = m_fuel + m_air_rich    # From flame to first stagnation reactor
+    M[2,3] = m_fuel + m_air_rich*entr       # From ignition to quenching PSR
+    M[3,4] = m_fuel + m_air_rich*entr       # From quenching to FIRST POST-FLAME flame PFR
+    M[4,5] = m_fuel + m_air_rich*entr       # From flame to first stagnation reactor
 
     # Stagnation zone
     stagn3 = 1 - stagn1 - stagn2
-    M[1,5] = m_air_bypass*stagn1
-    M[1,6] = m_air_bypass*stagn2
-    M[1,7] = m_air_bypass*stagn3
+    M[1,5] = m_air_bypass*stagn1 + m_air_rich*(1.0-entr) # From inlet air to first stagnation reactor
+    M[1,6] = m_air_bypass*stagn2                         # From inlet air to second stagnation reactor
+    M[1,7] = m_air_bypass*stagn3                         # From inlet air to outlet reactor
 
     # Sequential mass flowrates
     M[5,6] = m_fuel + m_air_rich + m_air_bypass*stagn1
@@ -252,7 +252,7 @@ def CalcPhiLean(Tout, *parameters):
     
     # Calculate the power left
     LHV_NH3 =    CalcLHV(y_nh3) * 1000                       # J/kg
-    LHV_H2 =   CalcLHV(1 - y_nh3) * 1000                   # J/kg
+    LHV_H2  =    CalcLHV(1 - y_nh3) * 1000                   # J/kg
     LHV = (y_h2_rich * LHV_H2 + y_nh3_rich * LHV_NH3)/(y_h2_rich + y_nh3_rich)        # J/kg
     Power_lean = m_fuel_lean * LHV                          # W
 
@@ -339,13 +339,19 @@ else:
     stagn1 = 0.1
     stagn2 = 0.15
 
+# Check for entrainment fraction
+if 'F_entr' in names:
+    entr = float(values[names.index('F_entr')])
+else:
+    entr = 0.976
+
 # Calculate phi lean
 T_in_lean = T_cstr_1    # K
 parameters = (Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
 phi_lean, phi_global, m_air_rich, m_air_lean = CalcPhiLean(Tout, *parameters)
 
 # Get mass flowrates
-M = calc_mass_flowrates(P, y_nh3, phi_rich, phi_global, stagn1, stagn2)
+M = calc_mass_flowrates(P, y_nh3, phi_rich, phi_global, stagn1, stagn2, entr)
 
 # Get the number of reactors and the list of files to open to replace strings
 print('Checking which files to open...\n')
@@ -384,9 +390,9 @@ for fname in fname_list:
             
             for subitem in line:
                 if subitem =='M0':
-                    line[line.index(subitem)] = str(np.sum(M[0,:]))
+                    line[line.index(subitem)] = str(np.sum(M[0,:]))     # Inlets reactors indeces should be inverted
                 elif subitem =='M1':
-                    line[line.index(subitem)] = str(np.sum(M[1,:]))
+                    line[line.index(subitem)] = str(np.sum(M[1,:]))     # Inlets reactors indeces should be inverted
                 elif subitem =='M2':
                     line[line.index(subitem)] = str(np.sum(M[:,2]))
                 elif subitem =='M3':

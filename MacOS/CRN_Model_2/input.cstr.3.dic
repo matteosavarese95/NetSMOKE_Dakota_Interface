@@ -3,11 +3,11 @@ Dictionary PerfectlyStirredReactor
       @KineticsFolder     dummy; 
       @InletStatus        Inlet-Mixture; 
       @Type               NonIsothermal-ConstantPressure; 
-      @GlobalThermalExchangeCoefficient   20 W/m2/K; 
+      @GlobalThermalExchangeCoefficient   10 W/m2/K; 
       @ExchangeArea               1 m2; 
-      @EnvironmentTemperature     800 K;  
+      @EnvironmentTemperature     1000 K;  
       @MassFlowRate      M3 kg/s;   
-      @ResidenceTime      1.000000e-05 s;   
+      @Volume      50 cm3;   
 } 
 
  Dictionary Inlet-Mixture 
