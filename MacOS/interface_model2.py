@@ -22,6 +22,11 @@ Tout  = 1200.0          # K
 Power = 48.0            # kW
 T_in_rich = 300.0       # K (fuel temperature)
 
+# ---------------- USER DEFINED PARAMETERS ---------------- #
+# If UQ of phi_rich and T_cstr_1 is not carried out, then the following values are used
+phi_rich = 1.0
+T_cstr_1 = 900.0
+
 # ---------------- HELPER FUNCTIONS ---------------- #
 # calculate fuel and air mass flowrates
 def calc_inlet_mass(Power, y_nh3, phi):
@@ -320,28 +325,38 @@ print(names)
 if 'phi_rich' in names and 'T_cstr_1' in names:
     phi_rich = float(values[names.index('phi_rich')])
     T_cstr_1 = float(values[names.index('T_cstr_1')])
+elif 'phi_rich' in names and 'T_cstr_1' not in names:
+    phi_rich = float(values[names.index('phi_rich')])
+    names.append('T_cstr_1')
+    values.append(T_cstr_1)
+elif 'phi_rich' not in names and 'T_cstr_1' in names:
+    T_cstr_1 = float(values[names.index('T_cstr_1')])
+    names.append('phi_rich')
+    values.append(phi_rich)
 else:
-    print('Error: phi_rich or T_cstr_1 not found in input file')
-    sys.exit(1)
+    names.append('phi_rich')
+    values.append(str(phi_rich))
+    names.append('T_cstr_1')
+    values.append(str(T_cstr_1))
 
-# See if there are stagn1 and stagn2 in the input file
-# For simplicity they can be called F1 and F2
-if 'F1' and 'F2' in names:
-    stagn1 = float(values[names.index('F1')])
-    stagn2 = float(values[names.index('F2')])
-elif 'F1' in names and 'F2' not in names:
-    stagn1 = float(values[names.index('F1')])
+# Fraction of air to the different reactors
+# The names are from the table in the paper
+if 'Fa3' and 'Fa4' in names:
+    stagn1 = float(values[names.index('Fa3')])
+    stagn2 = float(values[names.index('Fa4')])
+elif 'Fa3' in names and 'Fa4' not in names:
+    stagn1 = float(values[names.index('Fa3')])
     stagn2 = 0.15
-elif 'F1' not in names and 'F2' in names:
-    stagn2 = float(values[names.index('F2')])
+elif 'Fa3' not in names and 'Fa4' in names:
+    stagn2 = float(values[names.index('Fa4')])
     stagn1 = 0.1
 else:
     stagn1 = 0.1
     stagn2 = 0.15
 
 # Check for entrainment fraction
-if 'F_entr' in names:
-    entr = float(values[names.index('F_entr')])
+if 'Fa1' in names:
+    entr = float(values[names.index('Fa1')])
 else:
     entr = 0.976
 

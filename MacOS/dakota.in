@@ -24,9 +24,9 @@ method
 variables
   active uncertain
   normal_uncertain = 1
-    means               =  0.05
-    std_deviations      =  0.001	
-    descriptors         =  'TAU_CSTR_2'
+    means               =  10.0
+    std_deviations      =  1.0	
+    descriptors         =  'U_cstr_3' 'V_cstr_2' 'V_cstr_5' 'V_cstr_6'
 
   uniform_uncertain = 2
     lower_bounds = 	1.1		0.1

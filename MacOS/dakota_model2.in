@@ -23,15 +23,15 @@ method
 
 variables
   active uncertain
-  normal_uncertain = 1
-    means               =  900
-    std_deviations      =  10.0	
-    descriptors         =  'T_cstr_1'
+  normal_uncertain = 2
+    means               =  710.0         388.0
+    std_deviations      =  50.0           25.0
+    descriptors         =  'V_cstr_5'   'V_cstr_6'
 
-  uniform_uncertain = 3
-    lower_bounds = 	1.1		        0.05    0.96
-    upper_bounds =	1.3		        0.15    0.99
-    descriptors =   'phi_rich'	  'F1'    'F_entr'
+  uniform_uncertain = 5
+    lower_bounds = 			 0.05     0.96    0.05    30.0        0.0
+    upper_bounds =			 0.15     0.99    0.25    100.0       25.0
+    descriptors =   	  'Fa3'     'Fa1'   'Fa4'   'V_cstr_2'  'U_cstr_3'
 
 interface
       analysis_drivers 	= 'driver_model2.sh'

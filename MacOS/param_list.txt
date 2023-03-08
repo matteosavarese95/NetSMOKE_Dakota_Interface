@@ -1,9 +1,20 @@
 Parametro   Range       Distribuzione   Unita
 -----------------------------------------------
-U_CSTR_3    5.0-25.0    Uniforme        W/m2/K  (anche Normal con media 15 e deviazione 5 può andare bene)
-V_CSTR_2    31.0-100.0  Uniforme        cm3     (questo deve essere almeno 30 quindi Uniforme meglio)
-L_PFR_4     19.5-60.0   Uniforme        mm      (questo anche Normal va bene con media 40 e deviazione 10)
-F1          0.05-0.15   Uniforme        -       (Preferibile uniform ma anche Normal va bene)
-F2          0.05-0.15   Uniforme        -       (Preferibile uniform ma anche Normal va bene)
-TAU_CSTR_4  0.001-0.01  Uniforme        s       (in realtà converrebbe V dal CFD)
-TAU_CSTR_5  0.01-0.05   Uniforme        s       (in realtà converrebbe V dal CFD)
+U_cstr_3    0.0-25.0    Uniforme        W/m2/K  (Uq paper, anche Normal con media 15 e deviazione 5 può andare bene)
+V_cstr_2    30.0-100.0  Uniforme        cm3     (V1 paper, questo deve essere almeno 30 quindi Uniforme meglio)
+Fa1         0.95-1.0    Uniforme        -       (Fa1 paper, Occhio che questo parametro è molto influente)
+Fa3         0.05-0.15   Uniforme        -       (Fa3 paper, Preferibile uniform ma anche Normal va bene)
+Fa4         0.05-0.15   Uniforme        -       (Fa4 paper, Preferibile uniform ma anche Normal va bene)
+V_cstr_5    600-1000    Uniforme        cm3     (V3 paper, Non dovrebbe avere molta influenza)
+V_cstr_6    300-500     Uniforme        cm3     (V4 paper, Non dovrebbe avere molta influenza)
+
+##########################################################################################
+
+# Se non vengono specificati:
+# phi_rich
+# T_cstr_1
+
+# Vanno specificati direttamente nel file interface_model2.py
+# Quindi la condizione operativa sarà fissata
+# Di default, per sicurezza, ci sono dei valori
+# Vedere linee 27-28
