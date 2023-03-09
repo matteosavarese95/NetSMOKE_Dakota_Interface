@@ -18,15 +18,12 @@ import cantera as ct
 # ---------------- USER DEFINED PARAMETERS ---------------- #
 P = 96.0                # kW
 y_nh3 = 1.0             # mole fraction
-Tout  = 1170.0          # K
+Tout  = 1225.0          # K
 Power = 96.0            # kW
 T_in_rich = 300.0       # K (fuel temperature)
-
-# ---------------- USER DEFINED PARAMETERS ---------------- #
-# If UQ of phi_rich and T_cstr_1 is not carried out, then the following values are used
-phi_rich = 1.0
-T_cstr_1 = 800.0
-T_cstr_3 = T_cstr_1
+phi_rich = 1.0          # equivalence ratio
+T_cstr_1 = 800.0        # K
+T_cstr_3 = T_cstr_1     # K
 
 # ---------------- HELPER FUNCTIONS ---------------- #
 # calculate fuel and air mass flowrates
@@ -61,7 +58,7 @@ def calc_inlet_mass(Power, y_nh3, phi):
     return m_fuel, m_air
 
 # Calculate the mass flowrates of the network
-def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1=0.1, stagn2=0.15, entr=0.976):
+def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_global, stagn1=0.1, stagn2=0.15, entr=0.976):
 
     # This function calculates the mass flow rates across the reactors 
     # and stores them in a Matrix M[i,j] where M[i,j] is the mass flow rate
@@ -73,7 +70,7 @@ def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1=0.1, stagn2=0.1
     # They can be specified by the user from the Dakota input file.
 
     # Global quantities
-    m_fuel, m_air_tot = calc_inlet_mass(Power, y_nh3, phi_lean)
+    m_fuel, m_air_tot = calc_inlet_mass(Power, y_nh3, phi_global)
     m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
     m_air_bypass = m_air_tot - m_air_rich
 
@@ -234,7 +231,7 @@ def CalcPhiLean(Tout, *parameters):
     # Use cantera to find equilibrium mixture of rich stage
     fuel = ct.Solution('/Users/matteosavarese/Desktop/Dottorato/Github/Dakota_Interface/MacOS/Stagni_NH3/chem.cti')
     fuel_comp = 'NH3:1'
-    fuel.TPX = 340.0, 101325.0*5, fuel_comp
+    fuel.TPX = 300.0, 101325.0*5, fuel_comp
 
     # Create air
     air = ct.Solution('/Users/matteosavarese/Desktop/Dottorato/Github/Dakota_Interface/MacOS/Stagni_NH3/chem.cti')
@@ -283,6 +280,81 @@ def CalcPhiLean(Tout, *parameters):
     phi_global = 1/(1+excess_global)
      
     return phi_lean, phi_global, m_air_rich, m_air_lean
+
+def CalcAirMassNew(Tout, Tair):
+
+    # Properties of the fuel
+    y_nh3 = 1.0
+    LHV = CalcLHV(y_nh3)
+
+    # Specific heat of the burned mixture
+    cp = 1.173 # kJ/kg K
+
+    # Calculate the mass of fuel and the mass of rich air
+    Power = 96.0
+    phi_rich = 1.0
+    m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
+
+    # Define the residual function
+    def res(m_air):
+
+        Tmix = (m_fuel * 300 + m_air * Tair)/(m_fuel + m_air)
+        mcalc = Power/(cp*(Tout - Tmix))
+
+        return mcalc - m_air
+
+    # Calculate the total mass 
+    m_start = Power/(cp*(Tout - Tair))
+
+    # Solve the equation
+    from scipy.optimize import fsolve
+    m_air_tot = fsolve(res, m_start)[0]
+
+    return m_air_tot, m_air_rich
+
+# Calculate the mass flowrates of the network
+def calc_mass_flowrates_new(Power, y_nh3, phi_rich, Tout, Tair, stagn1=0.1, stagn2=0.15, entr=0.976):
+
+    # This function calculates the mass flow rates across the reactors 
+    # and stores them in a Matrix M[i,j] where M[i,j] is the mass flow rate
+    # from reactor i to reactor j. Please note that this function defines
+    # the internal structure of the reactor network. The user should modify
+    # this function to change the reactor network model.
+    # stagn1, stagn2 are the fractions of the bypass air that goes to the
+    # 1st stagnation reactor and 2nd stagnation reactor respectively.
+    # They can be specified by the user from the Dakota input file.
+
+    # Calculate total mass of air
+    m_air_tot, m_air_rich = CalcAirMassNew(Tout, Tair)
+
+    # Global quantities
+    m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
+
+    m_air_bypass = m_air_tot - m_air_rich
+
+    # Initialize mass flowrates matrix
+    M = np.zeros((8,8))
+
+    # First combustion zone
+    M[0,2] = m_fuel                 # To flame PSR
+    M[1,2] = m_air_rich*entr        # To flame PSR (we consider the fraction of air that is entrained)
+
+    # The quenching reactor is number 7
+    M[2,3] = m_fuel + m_air_rich*entr       # From ignition to quenching PSR
+    M[3,4] = m_fuel + m_air_rich*entr       # From quenching to FIRST POST-FLAME flame PFR
+    M[4,5] = m_fuel + m_air_rich*entr       # From flame to first stagnation reactor
+
+    # Stagnation zone
+    stagn3 = 1 - stagn1 - stagn2
+    M[1,5] = m_air_bypass*stagn1 + m_air_rich*(1.0-entr) # From inlet air to first stagnation reactor
+    M[1,6] = m_air_bypass*stagn2                         # From inlet air to second stagnation reactor
+    M[1,7] = m_air_bypass*stagn3                         # From inlet air to outlet reactor
+
+    # Sequential mass flowrates
+    M[5,6] = m_fuel + m_air_rich + m_air_bypass*stagn1
+    M[6,7] = m_fuel + m_air_rich + m_air_bypass*stagn1 + m_air_bypass*stagn2
+
+    return M
 
 # ---------------- READING DAKOTA INPUTS ---------------- #
 
@@ -368,11 +440,12 @@ else:
 
 # Calculate phi lean
 T_in_lean = T_cstr_1    # K
-parameters = (Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
-phi_lean, phi_global, m_air_rich, m_air_lean = CalcPhiLean(Tout, *parameters)
+T_in_rich = T_in_lean
+# parameters = (Tout, Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
+# phi_lean, phi_global, m_air_rich, m_air_lean = CalcPhiLean(Tout, *parameters)
 
 # Get mass flowrates
-M = calc_mass_flowrates(P, y_nh3, phi_rich, phi_global, stagn1, stagn2, entr)
+M = calc_mass_flowrates_new(P, y_nh3, phi_rich, Tout, T_cstr_1, stagn1, stagn2, entr)
 
 # Get the number of reactors and the list of files to open to replace strings
 print('Checking which files to open...\n')

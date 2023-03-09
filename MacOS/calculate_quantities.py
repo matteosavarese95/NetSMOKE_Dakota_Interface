@@ -18,7 +18,7 @@ import cantera as ct
 # ---------------- USER DEFINED PARAMETERS ---------------- #
 P = 96.0                # kW
 y_nh3 = 1.0             # mole fraction
-Tout  = 1170.0          # K
+Tout  = 1168.0          # K
 Power = 96.0            # kW
 T_in_rich = 300.0       # K (fuel temperature)
 
@@ -283,6 +283,38 @@ def CalcPhiLean(Tout, *parameters):
      
     return phi_lean, phi_global, m_air_rich, m_air_lean
 
+def CalcAirMassNew(Tout, Tair):
+
+    # Properties of the fuel
+    y_nh3 = 1.0
+    LHV = CalcLHV(y_nh3)
+
+    # Specific heat of the burned mixture
+    cp = 1.173 # kJ/kg K
+
+    # Calculate the mass of fuel and the mass of rich air
+    Power = 96.0
+    phi_rich = 1.0
+    m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
+
+    # Define the residual function
+    def res(m_air):
+
+        Tmix = (m_fuel * 300 + m_air * Tair)/(m_fuel + m_air)
+        mcalc = Power/(cp*(Tout - Tmix))
+
+        return mcalc - m_air
+
+    # Calculate the total mass 
+    m_start = Power/(cp*(Tout - Tair))
+
+    # Solve the equation
+    from scipy.optimize import fsolve
+    m_air_tot = fsolve(res, m_start)[0]
+
+    return m_air_tot, m_air_rich
+
+
 # ---------------- CALCULATE QUANTITIES ---------------- #
 Power = 96.0
 y_nh3 = 1.0
@@ -290,17 +322,14 @@ phi_rich = 1.0
 phi_global = 0.172
 T_in_rich = 800
 T_in_lean = 800
+Tout = 1222
 
-# Calculate mass flowrates by assigning phi
-m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
-m_fuel, m_air_tot  = calc_inlet_mass(Power, y_nh3, phi_global)
+# Calculate mass flowrates
+Tair = 800.0
+m_air_new, m_air_rich_new = CalcAirMassNew(Tout, Tair)
+print('m_air_new = ' + str(m_air_new) + ' kg/s')
+print('m_air_rich_new = ' + str(m_air_rich_new) + ' kg/s')
 
-print('m_fuel = ' + str(m_fuel) + ' kg/s')
-print('m_air_rich = ' + str(m_air_rich) + ' kg/s')
-print('m_air_tot = ' + str(m_air_tot) + ' kg/s')
 
-parameters = (Power, y_nh3, phi_rich, T_in_rich, T_in_lean)
-phi_lean, phi_global, m_air_rich, m_air_lean = CalcPhiLean(Tout, *parameters)
-print('phi global = ' + str(phi_global))
 
 
