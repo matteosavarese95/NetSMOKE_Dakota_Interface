@@ -30,7 +30,7 @@ variables
 
   uniform_uncertain = 5
     lower_bounds = 			 0.05     0.96    0.05    30.0        0.0
-    upper_bounds =			 0.15     0.99    0.25    100.0       25.0
+    upper_bounds =			 0.15     0.99    0.25    100.0       15.0
     descriptors =   	  'Fa3'     'Fa1'   'Fa4'   'V_cstr_2'  'U_cstr_3'
 
 interface
@@ -45,6 +45,6 @@ interface
 
 responses
   response_functions = 4
-  descriptors = 'T_cstr_2' 'T_cstr_6' 'NO_cstr_6' 'NH3_cstr_6'
+  descriptors = 'T_cstr_2' 'T_pfr_7' 'NO_pfr_7' 'NH3_pfr_7'
   no_gradients
   no_hessians

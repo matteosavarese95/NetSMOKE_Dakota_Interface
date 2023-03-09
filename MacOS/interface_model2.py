@@ -16,16 +16,17 @@ import cantera as ct
 # REACTOR 7: Third lean combustion reactor, now is isothermal (T = 1200 K) because of the heat loss in the quenching
 
 # ---------------- USER DEFINED PARAMETERS ---------------- #
-P = 48.0                # kW
+P = 96.0                # kW
 y_nh3 = 1.0             # mole fraction
-Tout  = 1200.0          # K
-Power = 48.0            # kW
+Tout  = 1170.0          # K
+Power = 96.0            # kW
 T_in_rich = 300.0       # K (fuel temperature)
 
 # ---------------- USER DEFINED PARAMETERS ---------------- #
 # If UQ of phi_rich and T_cstr_1 is not carried out, then the following values are used
 phi_rich = 1.0
-T_cstr_1 = 900.0
+T_cstr_1 = 800.0
+T_cstr_3 = T_cstr_1
 
 # ---------------- HELPER FUNCTIONS ---------------- #
 # calculate fuel and air mass flowrates
@@ -338,6 +339,11 @@ else:
     values.append(str(phi_rich))
     names.append('T_cstr_1')
     values.append(str(T_cstr_1))
+
+# Append T_cstr_3 as well
+if 'T_cstr_3' not in names:
+    names.append('T_cstr_3')
+    values.append(str(T_cstr_3))
 
 # Fraction of air to the different reactors
 # The names are from the table in the paper

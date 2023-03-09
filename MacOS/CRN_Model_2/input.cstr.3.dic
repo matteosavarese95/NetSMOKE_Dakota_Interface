@@ -5,7 +5,7 @@ Dictionary PerfectlyStirredReactor
       @Type               NonIsothermal-ConstantPressure; 
       @GlobalThermalExchangeCoefficient   U_cstr_3 W/m2/K; 
       @ExchangeArea               1 m2; 
-      @EnvironmentTemperature     1000 K;  
+      @EnvironmentTemperature     T_cstr_3 K;  
       @MassFlowRate      M3 kg/s;   
       @Volume      50 cm3;   
 } 
