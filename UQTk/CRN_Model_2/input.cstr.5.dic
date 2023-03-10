@@ -4,7 +4,7 @@ Dictionary PerfectlyStirredReactor
       @InletStatus        Inlet-Mixture; 
       @Type               NonIsothermal-ConstantPressure; 
       @MassFlowRate      M5 kg/s;   
-      @ResidenceTime      tau_CSTR_5 s;   
+      @Volume      V_cstr_5 cm3;   
 } 
 
  Dictionary Inlet-Mixture 

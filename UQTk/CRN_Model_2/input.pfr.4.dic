@@ -4,8 +4,8 @@ Dictionary PlugFlowReactor
       @Type               NonIsothermal; 
       @InletStatus        Inlet-Mixture; 
       @ConstantPressure   true;          
-      @Diameter           200 mm;         
-      @Length             L_PFR_4 mm;         
+      @Diameter           54 mm;         
+      @Length             118.11 mm;         
       @MassFlowRate       M4 kg/s;       
 }                                        
 

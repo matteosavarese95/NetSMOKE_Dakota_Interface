@@ -1,14 +1,14 @@
 Dictionary ReactorNetwork 
  { 
-@KineticsPreProcessor      kinetic-mechanism; 
-@MinIterations            5;   
-@MaxIterations            500;  
-@AtomicErrorThreshold     1e-4;
+@KineticsPreProcessor       kinetic-mechanism; 
+@MinIterations              5;   
+@MaxIterations              500;  
+@AtomicErrorThreshold       1e-4;
 @NonIsothermalErrorThreshold	1e-4; 
-@MaxUnbalance     0.05; 
+@MaxUnbalance               0.05; 
 @PlugFlowReactors     
 4        input.pfr.4.dic  
-7       input.pfr.7.dic;  
+7        input.pfr.7.dic;  
 @PerfectlyStirredReactors     
 0        input.cstr.0.dic  
 1        input.cstr.1.dic  
@@ -37,7 +37,7 @@ Dictionary ReactorNetwork
  } 
 Dictionary kinetic-mechanism 
  { 
-@Kinetics ../Otomo/otomo.inp; 
-@Thermodynamics ../Otomo/otomo_therm.dat; 
+@Kinetics           /Users/imacremote/Distributions/NetSMOKE_Dakota_Interface/MacOS/Otomo/otomo.inp; 
+@Thermodynamics     /Users/imacremote/Distributions/NetSMOKE_Dakota_Interface/MacOS/Otomo/otomo_therm.dat;
 @Output kinetics; 
  } 
