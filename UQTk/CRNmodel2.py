@@ -4,8 +4,18 @@
 # Alternatively, the function response=CRN_fwd_model(upars, xcond) is callable inline
 
 # WARNING: 
-# input parameters file is presumed to contains columns of V_CSTR_2,U_CSTR_3,L_PFR_4,tau_CSTR_5,tau_CSTR_6,L_PFR_7,F1,F2
+# input parameters file is presumed to contains columns of U_CSTR_3, Fa1, Fa3
 # x-cond file is presumed to contains columns of phi_rich, T_CSTR_1
+
+# ---------------- NEW MODEL STRUCTURE ---------------- #
+# REACTOR 0: Fuel inlet (fake reactor), T = T_fuel (300 K) fixed
+# REACTOR 1: Air inlet (fake reactor), T = T_rich  (800 - 1000 K) 
+# REACTOR 2: Ignition flame PSR, adiabatic reactor, small volume (~30cm3)
+# REACTOR 3: Quenching reactor, non-adiabatic, U = 10-20 W/m2/K, small volume (in theory should not be reactive)
+# REACTOR 4: First post-flame PFR (only rich mixture) it simulates the duct (tau ~ 0.02s)
+# REACTOR 5: First lean combustion reactor (tau ~ 0.001 s), rich mixture reacts with a portion of the lean mixture
+# REACTOR 6: Second lean combustion reactor (stagnation zone), rich mixture reacts with a portion of the lean mixture
+# REACTOR 7: Third lean combustion reactor, now is isothermal (T = 1200 K) because of the heat loss in the quenching
 
 
 import argparse
@@ -18,25 +28,22 @@ import pandas as pd
 import cantera as ct
 
 
-basefolder = 'CRN_model_2/'
+basefolder = 'CRN_Model_2/'
 path_to_netsmoke = '/Users/imacremote/Distributions/NetSmoke_Linux-Master/SeReNetSMOKEpp-master/bin'
 #chemfile = 'Otomo/otomo.yaml'
 chemfile = 'Stagni_NH3/chem.cti'
 
 # ---------------- USER DEFINED PARAMETERS ---------------- #
-Pwr = 48.0              # kW
+Pwr = 96.0              # kW
 y_nh3 = 1.0             # mole fraction
-Tout = 1200.0           # Desired T out
+Tout = 1225.0           # Desired T out
 T_in_rich = 300.0       # K (fuel temperature)
-
-# ---------------- UNCERTAIN PARAMETERS ---------------- #
-# input parameters file is presumed to contains columns of V_CSTR_2, U_CSTR_3, L_PFR_4, tau_CSTR_5, tau_CSTR_6, L_PFR_7, F1, F2
-# x-cond file (operating condition) is presumed to contains columns of phi_rich, T_CSTR_1
-# outputs will be 'T_cstr_2' 'T_cstr_6' 'NO_cstr_6' 'NH3_cstr_6'
+phi_rich = 1.0          # equivalence ratio
 
 
 
 # ---------------- HELPER FUNCTIONS ---------------- #
+# calculate fuel and air mass flowrates
 def calc_inlet_mass(Power, y_nh3, phi):
     
     # This function calculates the mass flow rate of fuel
@@ -68,7 +75,7 @@ def calc_inlet_mass(Power, y_nh3, phi):
     return m_fuel, m_air
 
 # Calculate the mass flowrates of the network
-def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1, stagn2):
+def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_global, stagn1=0.1, stagn2=0.15, entr=0.976):
 
     # This function calculates the mass flow rates across the reactors 
     # and stores them in a Matrix M[i,j] where M[i,j] is the mass flow rate
@@ -80,7 +87,7 @@ def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1, stagn2):
     # They can be specified by the user from the Dakota input file.
 
     # Global quantities
-    m_fuel, m_air_tot = calc_inlet_mass(Power, y_nh3, phi_lean)
+    m_fuel, m_air_tot = calc_inlet_mass(Power, y_nh3, phi_global)
     m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
     m_air_bypass = m_air_tot - m_air_rich
 
@@ -89,18 +96,18 @@ def calc_mass_flowrates(Power, y_nh3, phi_rich, phi_lean, stagn1, stagn2):
 
     # First combustion zone
     M[0,2] = m_fuel                 # To flame PSR
-    M[1,2] = m_air_rich             # To flame PSR
+    M[1,2] = m_air_rich*entr        # To flame PSR (we consider the fraction of air that is entrained)
 
     # The quenching reactor is number 7
-    M[2,3] = m_fuel + m_air_rich    # From ignition to quenching PSR
-    M[3,4] = m_fuel + m_air_rich    # From quenching to FIRST POST-FLAME flame PFR
-    M[4,5] = m_fuel + m_air_rich    # From flame to first stagnation reactor
+    M[2,3] = m_fuel + m_air_rich*entr       # From ignition to quenching PSR
+    M[3,4] = m_fuel + m_air_rich*entr       # From quenching to FIRST POST-FLAME flame PFR
+    M[4,5] = m_fuel + m_air_rich*entr       # From flame to first stagnation reactor
 
     # Stagnation zone
     stagn3 = 1 - stagn1 - stagn2
-    M[1,5] = m_air_bypass*stagn1
-    M[1,6] = m_air_bypass*stagn2
-    M[1,7] = m_air_bypass*stagn3
+    M[1,5] = m_air_bypass*stagn1 + m_air_rich*(1.0-entr) # From inlet air to first stagnation reactor
+    M[1,6] = m_air_bypass*stagn2                         # From inlet air to second stagnation reactor
+    M[1,7] = m_air_bypass*stagn3                         # From inlet air to outlet reactor
 
     # Sequential mass flowrates
     M[5,6] = m_fuel + m_air_rich + m_air_bypass*stagn1
@@ -204,7 +211,7 @@ def calc_outlet_temp(Power, y_nh3, phi_rich, phi_lean, T_in_rich, T_in_lean, T_a
     fuel.TPX = 340.0, 101325.0, fuel_comp
 
     # Create air
-    air = ct.Solution(chemfile)
+    air = ct.Solution(chefile)
     air.TPX = T_in_rich, 101325.0, 'O2:0.21, N2:0.79'
 
     # Use quantity objects so that you can mix the fuel and air
@@ -241,7 +248,7 @@ def CalcPhiLean(Tout, *parameters):
     # Use cantera to find equilibrium mixture of rich stage
     fuel = ct.Solution(chemfile)
     fuel_comp = 'NH3:1'
-    fuel.TPX = 340.0, 101325.0*5, fuel_comp
+    fuel.TPX = 300.0, 101325.0*5, fuel_comp
 
     # Create air
     air = ct.Solution(chemfile)
@@ -265,7 +272,7 @@ def CalcPhiLean(Tout, *parameters):
     
     # Calculate the power left
     LHV_NH3 =    CalcLHV(y_nh3) * 1000                       # J/kg
-    LHV_H2 =   CalcLHV(1 - y_nh3) * 1000                   # J/kg
+    LHV_H2  =    CalcLHV(1 - y_nh3) * 1000                   # J/kg
     LHV = (y_h2_rich * LHV_H2 + y_nh3_rich * LHV_NH3)/(y_h2_rich + y_nh3_rich)        # J/kg
     Power_lean = m_fuel_lean * LHV                          # W
 
@@ -290,6 +297,82 @@ def CalcPhiLean(Tout, *parameters):
     phi_global = 1/(1+excess_global)
      
     return phi_lean, phi_global, m_air_rich, m_air_lean
+
+def CalcAirMassNew(Tout, Tair):
+
+    # Properties of the fuel
+    y_nh3 = 1.0
+    LHV = CalcLHV(y_nh3)
+
+    # Specific heat of the burned mixture
+    cp = 1.173 # kJ/kg K
+
+    # Calculate the mass of fuel and the mass of rich air
+    Power = 96.0
+    phi_rich = 1.0
+    m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
+
+    # Define the residual function
+    def res(m_air):
+
+        Tmix = (m_fuel * 300 + m_air * Tair)/(m_fuel + m_air)
+        mcalc = Power/(cp*(Tout - Tmix))
+
+        return mcalc - m_air
+
+    # Calculate the total mass 
+    m_start = Power/(cp*(Tout - Tair))
+
+    # Solve the equation
+    from scipy.optimize import fsolve
+    m_air_tot = fsolve(res, m_start)[0]
+
+    return m_air_tot, m_air_rich
+
+# Calculate the mass flowrates of the network
+def calc_mass_flowrates_new(Power, y_nh3, phi_rich, Tout, Tair, stagn1=0.1, stagn2=0.15, entr=0.976):
+
+    # This function calculates the mass flow rates across the reactors 
+    # and stores them in a Matrix M[i,j] where M[i,j] is the mass flow rate
+    # from reactor i to reactor j. Please note that this function defines
+    # the internal structure of the reactor network. The user should modify
+    # this function to change the reactor network model.
+    # stagn1, stagn2 are the fractions of the bypass air that goes to the
+    # 1st stagnation reactor and 2nd stagnation reactor respectively.
+    # They can be specified by the user from the Dakota input file.
+
+    # Calculate total mass of air
+    m_air_tot, m_air_rich = CalcAirMassNew(Tout, Tair)
+
+    # Global quantities
+    m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
+
+    m_air_bypass = m_air_tot - m_air_rich
+
+    # Initialize mass flowrates matrix
+    M = np.zeros((8,8))
+
+    # First combustion zone
+    M[0,2] = m_fuel                 # To flame PSR
+    M[1,2] = m_air_rich*entr        # To flame PSR (we consider the fraction of air that is entrained)
+
+    # The quenching reactor is number 7
+    M[2,3] = m_fuel + m_air_rich*entr       # From ignition to quenching PSR
+    M[3,4] = m_fuel + m_air_rich*entr       # From quenching to FIRST POST-FLAME flame PFR
+    M[4,5] = m_fuel + m_air_rich*entr       # From flame to first stagnation reactor
+
+    # Stagnation zone
+    stagn3 = 1 - stagn1 - stagn2
+    M[1,5] = m_air_bypass*stagn1 + m_air_rich*(1.0-entr) # From inlet air to first stagnation reactor
+    M[1,6] = m_air_bypass*stagn2                         # From inlet air to second stagnation reactor
+    M[1,7] = m_air_bypass*stagn3                         # From inlet air to outlet reactor
+
+    # Sequential mass flowrates
+    M[5,6] = m_fuel + m_air_rich + m_air_bypass*stagn1
+    M[6,7] = m_fuel + m_air_rich + m_air_bypass*stagn1 + m_air_bypass*stagn2
+
+    return M
+
 
 
 
@@ -335,22 +418,23 @@ def CRN_fwd_model(upars, xcond, outfile=None):
             
     mydir = os.getcwd()
 
-    #parnames = ['phi_rich', 'T_CSTR_3','phi_lean','T_CSTR_1','TAU_CSTR_2','H_CSTR_2','L_PFR']
-    parnames = ['phi_rich','T_CSTR_1','V_CSTR_2','U_CSTR_3', 'L_PFR_4', 'tau_CSTR_5', 'tau_CSTR_6', 'L_PFR_7', 'F1', 'F2']
+    parnames = ['phi_rich','T_cstr_1','T_cstr_3','V_cstr_2','U_cstr_3', 'V_cstr_5', 'V_cstr_6', 'Fa1', 'Fa3', 'Fa4']
     
     response = []
     discarded = []
     
     for s in range(Nsamp):
         #from upars
-        V_CSTR_2 = upars[s,0]            
-        U_CSTR_3 = upars[s,1]
-        L_PFR_4 = upars[s,2]
-        tau_CSTR_5 = upars[s,3]
-        tau_CSTR_6 = upars[s,4]
-        L_PFR_7 = upars[s,5]
-        F1 = upars[s,6]
-        F2 = upars[s,7]
+        U_CSTR_3 = upars[s,0]
+        Fa1 = upars[s,1]
+        Fa3 = upars[s,2]
+        
+        #Fa3 = 0.1    #stagn1
+        Fa4 = 0.15   #stagn2
+        V_CSTR_2 = 75 
+        V_CSTR_5 = 800
+        V_CSTR_6 = 400
+        #Fa1 = 0.976  #entr
     	
         
         all_outputs_one_samp = []
@@ -359,21 +443,23 @@ def CRN_fwd_model(upars, xcond, outfile=None):
             #from x-cond:
             phi_rich = xcond[c,0]
             T_CSTR_1 = xcond[c,1]
+            T_CSTR_3 = T_CSTR_1    
             
-            # Calculate phi lean
             T_in_lean = T_CSTR_1
-            parameters = (Tout, Pwr, y_nh3, phi_rich, T_in_rich, T_in_lean)
-            phi_lean, phi_global, m_air_rich, m_air_lean = CalcPhiLean(Tout, *parameters)
-            
+            T_in_rich = T_in_lean
+            #parameters = (Tout, Pwr, y_nh3, phi_rich, T_in_rich, T_in_lean)
+            #phi_lean, phi_global, m_air_rich, m_air_lean = CalcPhiLean(Tout, *parameters)
+            # Get mass flowrates
+            M = calc_mass_flowrates_new(Pwr, y_nh3, phi_rich, Tout, T_CSTR_1, Fa3, Fa4, Fa1)
+
+
                     
-            parvalues = [phi_rich,T_CSTR_1,V_CSTR_2,U_CSTR_3,L_PFR_4,tau_CSTR_5,tau_CSTR_6,L_PFR_7,F1,F2]
+            parvalues = [phi_rich,T_CSTR_1,T_CSTR_3,V_CSTR_2,U_CSTR_3,V_CSTR_5,V_CSTR_6,Fa1,Fa3,Fa4]
             print('####################################################################################')
             print("Running condition %d, sample %d" %(c,s))
-            print(f'phi_rich {phi_rich}, phi_lean {phi_lean}, T_in {T_CSTR_1}')
-            #print(f'T_CSTR_1 {T_CSTR_1}, TAU_CSTR_2 {TAU_CSTR_2}, H_CSTR_2 {H_CSTR_2}, L_PFR {L_PFR}')
+            print(f'phi_rich {phi_rich}, T_in {T_CSTR_1}')
+            print(f'U_CSTR_3 {U_CSTR_3}, Fa1 {Fa1}, Fa3 {Fa3} ')
 
-            # Get mass flowrates
-            M = calc_mass_flowrates(Pwr, y_nh3, phi_rich, phi_global, F1, F2)
     		
             plh = []
             for i in range(len(M)):
@@ -418,15 +504,14 @@ def CRN_fwd_model(upars, xcond, outfile=None):
             # ---------------- READING CRN OUTPUTS ---------------- #
             print('Reading outputs...')
             
-            output_names = ['T_cstr_2', 'T_cstr_6', 'NO_cstr_6', 'NH3_cstr_6']
+            #output_names = ['T_cstr_2', 'T_cstr_6', 'NO_cstr_6', 'NH3_cstr_6']
+            output_names = ['NO_pfr_7', 'NH3_pfr_7']
             output_values = []
             for item in output_names:
                 spl = item.split('_')
                 outname = folder+'Output/Reactor.' + spl[2] + '/Output.out'
                 dt = pd.read_csv(outname, sep = '\s+', on_bad_lines='skip')
             
-                H2O_out = dt['H2O_x(18)'].values[0]
-                O2_out = dt['O2_x(13)'].values[0]
                 
                 if spl[0] == 'T':
                     output_values.append(dt['T[K](5)'].values[-1])
@@ -442,21 +527,21 @@ def CRN_fwd_model(upars, xcond, outfile=None):
         # response is a Nsamp-rows and (Ncond*Noutputs)-columns matrix  
         
         #add this sample response, unless the output is not good
-        if (any(np.array(all_outputs_one_samp)[:,1] < Tout*0.95)):
-            print(f'!!!!!!!!! Discarding sample {s} because Tout is too low')
-            discarded.append(s)
-            with open('discarded_backdoor.dat', 'a') as fb:
-                fb.write(str(s))
-                fb.write("\n")
-        else:
-            all_outputs_one_samp_flat = [item for sublist in all_outputs_one_samp for item in sublist]            
-            response.append(all_outputs_one_samp_flat) #append flattened out list
+        #if (any(np.array(all_outputs_one_samp)[:,1] < Tout*0.95)):
+        #    print(f'!!!!!!!!! Discarding sample {s} because Tout is too low')
+        #    discarded.append(s)
+        #    with open('discarded_backdoor.dat', 'a') as fb:
+        #        fb.write(str(s))
+        #        fb.write("\n")
+        #else:
+        all_outputs_one_samp_flat = [item for sublist in all_outputs_one_samp for item in sublist]            
+        response.append(all_outputs_one_samp_flat) #append flattened out list
         
-            # ---------------- WRITING OUTPUTS TO FILE ---------------- #
-            if outfile:
-                with open(outfile, 'a') as f:
-                    f.write(' '.join(str(x) for x in all_outputs_one_samp_flat))
-                    f.write("\n")  
+        # ---------------- WRITING OUTPUTS TO FILE ---------------- #
+        if outfile:
+            with open(outfile, 'a') as f:
+                f.write(' '.join(str(x) for x in all_outputs_one_samp_flat))
+                f.write("\n")  
                 
     return(response, discarded)
 
