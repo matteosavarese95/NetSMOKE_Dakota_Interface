@@ -175,7 +175,7 @@ $IUQ/run_infer.x $PMTYPE
 echo "Postprocessing inference results"
 
 ## Currently hardwired for 2d example and embedded case, one should take the routines inside this as an example
-$IUQ/postp_infer.x > postp_infer.out
+postp_infer.x > postp_infer.out
 
 #######################################################################
 #######################################################################
