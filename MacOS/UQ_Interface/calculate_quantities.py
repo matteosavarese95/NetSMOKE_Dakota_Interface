@@ -290,7 +290,7 @@ def CalcAirMassNew(Tout, Tair):
     LHV = CalcLHV(y_nh3)
 
     # Specific heat of the burned mixture
-    cp = 1.173 # kJ/kg K
+    cp = 1.173 # kJ/kg K 
 
     # Calculate the mass of fuel and the mass of rich air
     Power = 96.0
@@ -314,21 +314,59 @@ def CalcAirMassNew(Tout, Tair):
 
     return m_air_tot, m_air_rich
 
+def CalcAirMassNew_CpCantera(Tout, Tair):
+
+    # Properties of the fuel
+    y_nh3 = 1.0
+    LHV = CalcLHV(y_nh3)
+
+    # Specific heat of the burned mixture
+    gas = ct.Solution('gri30.xml')
+    gas.X = 'O2:0.21, N2:0.79'
+
+    # Calculate the mass of fuel and the mass of rich air
+    Power = 96.0
+    phi_rich = 1.0
+    m_fuel, m_air_rich = calc_inlet_mass(Power, y_nh3, phi_rich)
+
+    # Define the residual function
+    def res(m_air):
+
+        Tmix = (m_fuel * 300 + m_air * Tair)/(m_fuel + m_air)
+        gas.TP = Tmix, 1e5*5
+        cp = gas.cp_mass * 1e-3 # kJ/kg K
+        mcalc = Power/(cp*(Tout - Tmix))
+
+        return mcalc - m_air
+
+    # Calculate the total mass 
+    T_start = 1200.0
+    gas.TP = T_start, 1e5*5
+    cp = gas.cp_mass * 1e-3 # kJ/kg K
+    m_start = Power/(cp*(Tout - Tair))
+
+    # Solve the equation
+    from scipy.optimize import fsolve
+    m_air_tot = fsolve(res, m_start)[0]
+
+    return m_air_tot, m_air_rich
+
 
 # ---------------- CALCULATE QUANTITIES ---------------- #
 Power = 96.0
 y_nh3 = 1.0
 phi_rich = 1.0
 phi_global = 0.172
-T_in_rich = 800
-T_in_lean = 800
-Tout = 1222
+T_in_rich = 300.0
+T_in_lean = 1050.0
+Tout = 1225.0
 
 # Calculate mass flowrates
 Tair = 800.0
-m_air_new, m_air_rich_new = CalcAirMassNew(Tout, Tair)
+m_air_new, m_air_rich_new = CalcAirMassNew_CpCantera(Tout, Tair)
 print('m_air_new = ' + str(m_air_new) + ' kg/s')
 print('m_air_rich_new = ' + str(m_air_rich_new) + ' kg/s')
+print('m_air_lean_new = ' + str(m_air_new - m_air_rich_new) + ' kg/s')
 
 
 

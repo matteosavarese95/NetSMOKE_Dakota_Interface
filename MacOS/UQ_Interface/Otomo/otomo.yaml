@@ -1,0 +1,24 @@
+description: |-
+  ! UT-LCS Ver.1.0   2017.11.22
+
+  !
+
+  Most of the data from Song et la. Fuel 2016, 181, 358-365.
+
+generator: ck2yaml
+input-files: [otomo.inp, therm_mmc2.dat, tran_mmc3.dat]
+cantera-version: 2.5.0
+date: Thu, 09 Feb 2023 09:43:13 -0800
+
+units: {length: cm, time: s, quantity: mol, activation-energy: cal/mol}
+
+phases:
+- name: gas
+  thermo: ideal-gas
+  elements: [O, H, N, He, Ar]
+  species: [NO, NH3, H2, O2, H, O, OH, HO2, H2O, H2O2, NH2, NH, N, NNH,
+    NH2OH, H2NO, HNOH, HNO, HON, NO2, HONO, HNO2, NO3, HONO2, N2O, N2H4,
+    N2H3, N2H2, H2NN, AR, HE, N2, CO2]
+  kinetics: gas
+  transport: mixture-averaged
+  state: {T: 300.0, P: 1 atm}

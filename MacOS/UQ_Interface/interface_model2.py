@@ -23,7 +23,6 @@ Power = 96.0            # kW
 T_in_rich = 300.0       # K (fuel temperature)
 phi_rich = 1.0          # equivalence ratio
 T_cstr_1 = 800.0        # K
-T_cstr_3 = T_cstr_1     # K
 
 # ---------------- HELPER FUNCTIONS ---------------- #
 # calculate fuel and air mass flowrates
@@ -411,6 +410,8 @@ else:
     values.append(str(phi_rich))
     names.append('T_cstr_1')
     values.append(str(T_cstr_1))
+
+T_cstr_3 = T_cstr_1
 
 # Append T_cstr_3 as well
 if 'T_cstr_3' not in names:
